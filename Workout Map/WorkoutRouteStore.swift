@@ -232,11 +232,10 @@ final class WorkoutRouteStore: ObservableObject {
     func persistCameraRegion(_ region: MKCoordinateRegion) {
         cachedCameraRegion = region
         pendingCameraSaveTask?.cancel()
-        let currentRoutes = routes
-        pendingCameraSaveTask = Task { [cache] in
+        pendingCameraSaveTask = Task { [weak self, cache] in
             try? await Task.sleep(nanoseconds: 400_000_000)
-            guard !Task.isCancelled else { return }
-            cache.save(routes: currentRoutes, cameraRegion: region)
+            guard let self, !Task.isCancelled else { return }
+            cache.save(routes: self.routes, cameraRegion: region)
         }
     }
 
