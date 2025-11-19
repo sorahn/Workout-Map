@@ -105,7 +105,6 @@ final class WorkoutRouteCache {
 
         if let document = try? decoder.decode(WorkoutRouteCacheDocument.self, from: data) {
             let routes = document.routes.map { $0.makeRoute() }
-            let routes = document.routes.map { $0.makeRoute() }
             return WorkoutRouteCachePayload(
                 routes: routes,
                 cameraRegion: document.cameraRegion?.region
