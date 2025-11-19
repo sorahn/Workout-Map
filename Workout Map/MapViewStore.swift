@@ -47,6 +47,7 @@ final class MapViewStore: ObservableObject {
 
     private func handleRoutesUpdate(_ routes: [WorkoutRoute]) {
         guard !routes.isEmpty,
+              !hasCenteredOnLatestRoute,
               let latestRoute = routes.first,
               let region = MapViewStore.regionForRoute(latestRoute) else { return }
 
