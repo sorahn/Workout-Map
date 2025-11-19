@@ -333,9 +333,11 @@ struct ExportStatusBanner: View {
                   systemImage: "arrow.down.circle")
                 .font(.subheadline.weight(.semibold))
             Spacer(minLength: 0)
-            Button("Cancel", action: cancelAction)
-                .font(.subheadline.weight(.semibold))
-                .buttonStyle(.borderedProminent)
+            Button(action: cancelAction) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
