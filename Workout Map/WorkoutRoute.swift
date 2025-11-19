@@ -102,14 +102,14 @@ extension Collection where Element == WorkoutRoute {
         var maxLongitude = firstCoordinate.longitude
 
         for coordinate in coordinates {
-            minLatitude = min(minLatitude, coordinate.latitude)
-            maxLatitude = max(maxLatitude, coordinate.latitude)
-            minLongitude = min(minLongitude, coordinate.longitude)
-            maxLongitude = max(maxLongitude, coordinate.longitude)
+            minLatitude = Swift.min(minLatitude, coordinate.latitude)
+            maxLatitude = Swift.max(maxLatitude, coordinate.latitude)
+            minLongitude = Swift.min(minLongitude, coordinate.longitude)
+            maxLongitude = Swift.max(maxLongitude, coordinate.longitude)
         }
 
-        let latitudeDelta = max((maxLatitude - minLatitude) * (1 + paddingFactor), 0.01)
-        let longitudeDelta = max((maxLongitude - minLongitude) * (1 + paddingFactor), 0.01)
+        let latitudeDelta = Swift.max((maxLatitude - minLatitude) * (1 + paddingFactor), 0.01)
+        let longitudeDelta = Swift.max((maxLongitude - minLongitude) * (1 + paddingFactor), 0.01)
 
         let center = CLLocationCoordinate2D(
             latitude: (minLatitude + maxLatitude) / 2,
