@@ -81,8 +81,8 @@ struct ContentView: View {
         .overlay(alignment: .top) {
             if let exportProgress {
                 ExportStatusBanner(progress: exportProgress)
-                    .padding(.top, 20)
                     .padding(.horizontal)
+                    .padding(.top, 20)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
@@ -94,7 +94,7 @@ struct ContentView: View {
                     .background(.regularMaterial, in: Circle())
             }
             .padding(.leading, 16)
-            .padding(.bottom, 0)
+            .padding(.bottom, exportProgress == nil ? 0 : 60)
         }
         .overlay(alignment: .topLeading) {
             if selectionCount > 0 {
@@ -104,7 +104,7 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.leading, 16)
-                    .padding(.top, 16)
+                    .padding(.top, topSelectionPadding)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -117,7 +117,7 @@ struct ContentView: View {
                         .background(.regularMaterial, in: Capsule())
                 }
                 .padding(.trailing, 16)
-                .padding(.top, 16)
+                .padding(.top, topSelectionPadding)
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -137,7 +137,7 @@ struct ContentView: View {
                 .frame(width: 48, height: 48)
                 .background(.regularMaterial, in: Circle())
                 .padding(.trailing, 16)
-                .padding(.bottom, 0)
+                .padding(.bottom, exportProgress == nil ? 0 : 60)
             }
         }
         .onMapCameraChange(frequency: .onEnd) { context in
@@ -183,6 +183,10 @@ struct ContentView: View {
 extension ContentView {
     private var selectionCount: Int {
         selectedRoutes.count
+    }
+
+    private var topSelectionPadding: CGFloat {
+        exportProgress == nil ? 16 : 80
     }
 
     private func selectVisibleWorkouts() {
@@ -316,12 +320,16 @@ struct ExportStatusBanner: View {
     let progress: ExportProgress
 
     var body: some View {
-        Label("Downloading tiles \(progress.downloaded)/\(max(progress.total, 1))",
-              systemImage: "arrow.down.circle")
-            .font(.subheadline.weight(.semibold))
-            .padding(.vertical, 8)
-            .padding(.horizontal, 16)
-            .background(.regularMaterial, in: Capsule())
+        HStack(spacing: 8) {
+            Label("Downloading tiles \(progress.downloaded)/\(max(progress.total, 1))",
+                  systemImage: "arrow.down.circle")
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial)
     }
 }
 
