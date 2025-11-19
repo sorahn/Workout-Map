@@ -13,10 +13,7 @@ import SwiftUI
 final class MapViewStore: ObservableObject {
     @Published var cameraPosition: MapCameraPosition
 
-    private(set) var hasManuallyAdjustedCamera = false
-    private var shouldFitRoutesOnUpdate: Bool
     private var hasCenteredOnLatestRoute = false
-    private var isProgrammaticCameraChange = false
 
     private let workoutStore: WorkoutRouteStore
     private var latestWorkoutState: WorkoutRouteStore.State = .idle
@@ -25,12 +22,8 @@ final class MapViewStore: ObservableObject {
     init(workoutStore: WorkoutRouteStore) {
         self.workoutStore = workoutStore
 
-        let initialState = MapViewStore.initialCameraState(routes: workoutStore.routes)
-
-        cameraPosition = initialState.cameraPosition
-        shouldFitRoutesOnUpdate = initialState.shouldFitRoutesOnUpdate
-        hasCenteredOnLatestRoute = initialState.hasCenteredOnLatestRoute
-        isProgrammaticCameraChange = initialState.isProgrammatic
+        cameraPosition = .automatic
+        hasCenteredOnLatestRoute = false
 
         workoutStore.$routes
             .receive(on: RunLoop.main)
@@ -45,28 +38,18 @@ final class MapViewStore: ObservableObject {
                 self?.handleStateChange(state)
             }
             .store(in: &cancellables)
-    }
 
-    func handleCameraChange(region: MKCoordinateRegion?) {
-        guard let region else { return }
-
-        if isProgrammaticCameraChange {
-            isProgrammaticCameraChange = false
-        } else {
-            hasManuallyAdjustedCamera = true
+        if !workoutStore.routes.isEmpty {
+            handleRoutesUpdate(workoutStore.routes)
         }
-
     }
 
     private func handleRoutesUpdate(_ routes: [WorkoutRoute]) {
         guard !routes.isEmpty,
-              shouldFitRoutesOnUpdate,
-              !hasManuallyAdjustedCamera,
               let latestRoute = routes.first,
               let region = MapViewStore.regionForRoute(latestRoute) else { return }
 
         setCameraRegion(region)
-        shouldFitRoutesOnUpdate = false
     }
 
     private func handleStateChange(_ state: WorkoutRouteStore.State) {
@@ -78,7 +61,6 @@ final class MapViewStore: ObservableObject {
 
     private func attemptAutoCenterOnLatestRoute() {
         guard latestWorkoutState == .loaded,
-              !hasManuallyAdjustedCamera,
               !hasCenteredOnLatestRoute,
               let latestRoute = workoutStore.routes.first,
               let region = MapViewStore.regionForRoute(latestRoute) else { return }
@@ -88,27 +70,13 @@ final class MapViewStore: ObservableObject {
     }
 
     private func setCameraRegion(_ region: MKCoordinateRegion) {
-        isProgrammaticCameraChange = true
-        cameraPosition = .region(region)
+        withAnimation(.easeInOut(duration: 0.8)) {
+            cameraPosition = .region(region)
+        }
     }
 }
 
-
 private extension MapViewStore {
-    static func initialCameraState(routes: [WorkoutRoute]) -> (
-        cameraPosition: MapCameraPosition,
-        shouldFitRoutesOnUpdate: Bool,
-        hasCenteredOnLatestRoute: Bool,
-        isProgrammatic: Bool
-    ) {
-        guard let latestRoute = routes.first,
-              let region = regionForRoute(latestRoute) else {
-            return (.automatic, true, false, true)
-        }
-
-        return (.region(region), false, true, true)
-    }
-
     static func regionForRoute(_ route: WorkoutRoute, paddingFactor: Double = 0.15) -> MKCoordinateRegion? {
         let coordinates = route.coordinates
         guard let first = coordinates.first else { return nil }

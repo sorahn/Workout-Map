@@ -54,9 +54,6 @@ struct ContentView: View {
                     .padding(.top)
             }
         }
-        .onMapCameraChange(frequency: .onEnd) { context in
-            mapViewStore.handleCameraChange(region: context.region)
-        }
     }
 
     @ViewBuilder
