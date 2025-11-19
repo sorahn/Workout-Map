@@ -41,9 +41,7 @@ final class WorkoutRoutePersistence {
         let context = container.newBackgroundContext()
         context.perform {
             do {
-                let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: Entity.name)
-                let delete = NSBatchDeleteRequest(fetchRequest: fetch)
-                try context.execute(delete)
+                try Self.clearAll(in: context)
 
                 for route in routes {
                     let managedObject = NSEntityDescription.insertNewObject(forEntityName: Entity.name, into: context)
@@ -59,6 +57,27 @@ final class WorkoutRoutePersistence {
                 try context.save()
             } catch {
                 // Ignore persistence errors for now; cache is best-effort.
+            }
+        }
+    }
+
+    func clearAll(synchronous: Bool = false, completion: (() -> Void)? = nil) {
+        if synchronous {
+            let context = container.viewContext
+            context.performAndWait {
+                _ = try? Self.clearAll(in: context)
+                try? context.save()
+            }
+            completion?()
+            return
+        }
+
+        let context = container.newBackgroundContext()
+        context.perform {
+            _ = try? Self.clearAll(in: context)
+            try? context.save()
+            if let completion {
+                DispatchQueue.main.async(execute: completion)
             }
         }
     }
@@ -126,6 +145,14 @@ private extension WorkoutRoutePersistence {
 
         model.entities = [entity]
         return model
+    }
+
+    @discardableResult
+    static func clearAll(in context: NSManagedObjectContext) throws -> Bool {
+        let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: Entity.name)
+        let delete = NSBatchDeleteRequest(fetchRequest: fetch)
+        try context.execute(delete)
+        return true
     }
 
     static func encodeCoordinates(_ coords: [CLLocationCoordinate2D]) -> Data {

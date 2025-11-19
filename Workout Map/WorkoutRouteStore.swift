@@ -62,10 +62,16 @@ final class WorkoutRouteStore: ObservableObject {
     private var latestSyncedStartDate: Date?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
+    private static let clearCacheDefaultsKey = "clear_cache_on_launch"
 
     private let maxWorkoutsToFetch = HKObjectQueryNoLimit
 
     init() {
+        if UserDefaults.standard.bool(forKey: Self.clearCacheDefaultsKey) {
+            persistence.clearAll(synchronous: true)
+            UserDefaults.standard.set(false, forKey: Self.clearCacheDefaultsKey)
+        }
+
         let cachedRoutes = persistence.loadRoutes()
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
         self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
@@ -159,6 +165,16 @@ final class WorkoutRouteStore: ObservableObject {
         } catch {
             loadingProgress = nil
             throw error
+        }
+    }
+
+    func clearCache() {
+        persistence.clearAll { [weak self] in
+            guard let self else { return }
+            self.routes = []
+            self.knownWorkoutIDs.removeAll()
+            self.latestSyncedStartDate = nil
+            self.state = .empty
         }
     }
 

@@ -13,6 +13,7 @@ import MapKit
 struct ContentView: View {
     @StateObject private var workoutStore: WorkoutRouteStore
     @StateObject private var mapViewStore: MapViewStore
+    @State private var showClearConfirmation = false
 
     init() {
         let store = WorkoutRouteStore()
@@ -25,15 +26,35 @@ struct ContentView: View {
         _mapViewStore = StateObject(wrappedValue: MapViewStore(workoutStore: store))
     }
 
-    var body: some View {
+var body: some View {
+    NavigationStack {
         ZStack(alignment: .center) {
             mapLayer
             stateOverlay
         }
-        .task {
-            await workoutStore.refreshWorkoutsIfNeeded()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showClearConfirmation = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(workoutStore.routes.isEmpty)
+            }
+        }
+        .alert("Clear cached workouts?", isPresented: $showClearConfirmation) {
+            Button("Delete", role: .destructive) {
+                workoutStore.clearCache()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This removes all locally stored routes. They will reload from Health once available.")
         }
     }
+    .task {
+        await workoutStore.refreshWorkoutsIfNeeded()
+    }
+}
 
     private var mapLayer: some View {
         Map(position: $mapViewStore.cameraPosition, interactionModes: .all) {
