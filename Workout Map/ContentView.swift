@@ -59,19 +59,46 @@ var body: some View {
             Button(action: selectVisibleWorkouts) {
                 Image(systemName: "rectangle.dashed")
                     .font(.title2)
-                    .padding(12)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(width: 48, height: 48)
+                    .background(.regularMaterial, in: Circle())
             }
-            .padding()
+            .padding(.leading, 16)
+            .padding(.bottom, 0)
         }
-        .overlay(alignment: .bottomTrailing) {
+        .overlay(alignment: .topLeading) {
             if selectedVisibleCount > 0 {
                 Label("\(selectedVisibleCount) selected", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
                     .background(.ultraThinMaterial, in: Capsule())
-                    .padding()
+                    .padding(.leading, 16)
+                    .padding(.top, 16)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if selectedVisibleCount > 0 {
+                Button(action: { selectedVisibleCount = 0 }) {
+                    Label("Clear Selection", systemImage: "xmark.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(.regularMaterial, in: Capsule())
+                }
+                .padding(.trailing, 16)
+                .padding(.top, 16)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if selectedVisibleCount > 0 {
+                Button(action: {}) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.title2)
+                        .frame(width: 48, height: 48)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .padding(.trailing, 16)
+                .padding(.bottom, 0)
             }
         }
         .onMapCameraChange(frequency: .onEnd) { context in
