@@ -93,9 +93,13 @@ final class WorkoutRouteStore: ObservableObject {
         do {
             try await loadWorkouts()
         } catch let error as WorkoutRouteStoreError {
-            state = .error(error.errorDescription ?? "Something went wrong.")
+            if routes.isEmpty {
+                state = .error(error.errorDescription ?? "Something went wrong.")
+            }
         } catch {
-            state = .error(error.localizedDescription)
+            if routes.isEmpty {
+                state = .error(error.localizedDescription)
+            }
         }
     }
 
@@ -104,13 +108,20 @@ final class WorkoutRouteStore: ObservableObject {
             throw WorkoutRouteStoreError.healthDataUnavailable
         }
 
-        if !hasRequestedHealthAccess {
-            state = .requestingAccess
-            try await healthStore.requestAuthorization(toShare: [], read: [workoutType, routeType])
+        let authorizationStatus = healthStore.authorizationStatus(for: workoutType)
+        if authorizationStatus != .sharingAuthorized {
+            if !hasRequestedHealthAccess {
+                state = .requestingAccess
+                try await healthStore.requestAuthorization(toShare: [], read: [workoutType, routeType])
+                hasRequestedHealthAccess = true
+            }
+        } else {
             hasRequestedHealthAccess = true
         }
 
-        state = .loading
+        if routes.isEmpty {
+            state = .loading
+        }
         loadingProgress = nil
 
         do {

@@ -59,12 +59,14 @@ var body: some View {
     @ViewBuilder
     private var stateOverlay: some View {
         switch workoutStore.state {
-        case .requestingAccess:
+        case .requestingAccess where workoutStore.routes.isEmpty:
             StatusOverlayView(
                 title: "Allow Health Access",
                 message: "Approve the HealthKit prompt so we can pull your workouts.",
                 showProgress: true
             )
+        case .requestingAccess:
+            EmptyView()
         case .loading:
             EmptyView()
         case .empty:
