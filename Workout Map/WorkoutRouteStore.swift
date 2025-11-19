@@ -5,6 +5,7 @@
 //  Created by Codex on 11/18/25.
 //
 
+import Combine
 import Foundation
 import HealthKit
 import MapKit

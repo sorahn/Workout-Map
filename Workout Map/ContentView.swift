@@ -5,9 +5,11 @@
 //  Created by Daryl Roberts on 11/18/25.
 //
 
+import Combine
 import SwiftUI
 import MapKit
 
+@MainActor
 struct ContentView: View {
     @StateObject private var workoutStore: WorkoutRouteStore
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -24,7 +26,7 @@ struct ContentView: View {
         .task {
             await workoutStore.refreshWorkoutsIfNeeded()
         }
-        .onChange(of: workoutStore.routes) { newRoutes in
+        .onReceive(workoutStore.$routes) { newRoutes in
             guard !newRoutes.isEmpty,
                   let region = newRoutes.combinedRegion() else { return }
             cameraPosition = .region(region)
