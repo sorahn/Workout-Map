@@ -80,7 +80,7 @@ struct ContentView: View {
         }
         .overlay(alignment: .top) {
             if let exportProgress {
-                ExportStatusBanner(progress: exportProgress)
+                ExportStatusBanner(progress: exportProgress, cancelAction: cancelExport)
                     .padding(.horizontal)
                     .padding(.top, 20)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -108,7 +108,7 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            if selectionCount > 0 {
+            if selectionCount > 0, exportProgress == nil {
                 Button(action: clearSelection) {
                     Label("Clear Selection", systemImage: "xmark.circle")
                         .font(.subheadline.weight(.semibold))
@@ -235,6 +235,13 @@ extension ContentView {
             }
         }
     }
+
+    private func cancelExport() {
+        isExporting = false
+        withAnimation(.spring()) {
+            exportProgress = nil
+        }
+    }
 }
 
 private struct StatusOverlayView: View {
@@ -318,6 +325,7 @@ struct ExportProgress: Equatable {
 
 struct ExportStatusBanner: View {
     let progress: ExportProgress
+    let cancelAction: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -325,11 +333,14 @@ struct ExportStatusBanner: View {
                   systemImage: "arrow.down.circle")
                 .font(.subheadline.weight(.semibold))
             Spacer(minLength: 0)
+            Button("Cancel", action: cancelAction)
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.borderedProminent)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
-        .background(.regularMaterial)
+        .background(.regularMaterial, in: Capsule())
     }
 }
 
