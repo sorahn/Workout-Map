@@ -54,7 +54,7 @@ final class WorkoutRouteStore: ObservableObject {
     private let healthStore = HKHealthStore()
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
-    private let cache: WorkoutRouteCache
+    private let persistence = WorkoutRoutePersistence.shared
     private let colorPalette: [WorkoutRoute.RouteColor] = [
         .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
     ]
@@ -65,11 +65,8 @@ final class WorkoutRouteStore: ObservableObject {
 
     private let maxWorkoutsToFetch = HKObjectQueryNoLimit
 
-    init(cache: WorkoutRouteCache? = nil) {
-        let cacheInstance = cache ?? WorkoutRouteCache()
-        self.cache = cacheInstance
-        let payload = cacheInstance.load()
-        let cachedRoutes = payload.routes
+    init() {
+        let cachedRoutes = persistence.loadRoutes()
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
         self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
         if !cachedRoutes.isEmpty {
@@ -155,7 +152,7 @@ final class WorkoutRouteStore: ObservableObject {
             let mergedRoutes = newRoutes + existingRoutes
             self.routes = mergedRoutes
             state = .loaded
-            cache.save(routes: mergedRoutes, cameraRegion: nil)
+            persistence.replaceAll(with: mergedRoutes)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
