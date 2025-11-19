@@ -142,6 +142,7 @@ final class WorkoutRouteStore: ObservableObject {
                     color: colorForRoute(at: existingRoutes.count + newRoutes.count)
                 ) {
                     newRoutes.append(route)
+                    persistence.upsert(route)
                     knownWorkoutIDs.insert(workout.uuid)
                     latestSyncedStartDate = max(latestSyncedStartDate ?? workout.startDate, workout.startDate)
                     self.routes = newRoutes + existingRoutes
@@ -158,7 +159,6 @@ final class WorkoutRouteStore: ObservableObject {
             let mergedRoutes = newRoutes + existingRoutes
             self.routes = mergedRoutes
             state = .loaded
-            persistence.replaceAll(with: mergedRoutes)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied

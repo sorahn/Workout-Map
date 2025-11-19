@@ -44,19 +44,24 @@ final class WorkoutRoutePersistence {
                 try Self.clearAll(in: context)
 
                 for route in routes {
-                    let managedObject = NSEntityDescription.insertNewObject(forEntityName: Entity.name, into: context)
-                    managedObject.setValue(route.id, forKey: Route.id)
-                    managedObject.setValue(route.workoutIdentifier, forKey: Route.workoutIdentifier)
-                    managedObject.setValue(route.name, forKey: Route.name)
-                    managedObject.setValue(route.distanceInKilometers, forKey: Route.distance)
-                    managedObject.setValue(route.startDate, forKey: Route.startDate)
-                    managedObject.setValue(route.routeColor.rawValue, forKey: Route.color)
-                    managedObject.setValue(WorkoutRoutePersistence.encodeCoordinates(route.coordinates), forKey: Route.coordinates)
+                    Self.insert(route, into: context)
                 }
 
                 try context.save()
             } catch {
                 // Ignore persistence errors for now; cache is best-effort.
+            }
+        }
+    }
+
+    func upsert(_ route: WorkoutRoute) {
+        let context = container.newBackgroundContext()
+        context.perform {
+            Self.insert(route, into: context)
+            do {
+                try context.save()
+            } catch {
+                context.rollback()
             }
         }
     }
@@ -153,6 +158,17 @@ private extension WorkoutRoutePersistence {
         let delete = NSBatchDeleteRequest(fetchRequest: fetch)
         try context.execute(delete)
         return true
+    }
+
+    static func insert(_ route: WorkoutRoute, into context: NSManagedObjectContext) {
+        let managedObject = NSEntityDescription.insertNewObject(forEntityName: Entity.name, into: context)
+        managedObject.setValue(route.id, forKey: Route.id)
+        managedObject.setValue(route.workoutIdentifier, forKey: Route.workoutIdentifier)
+        managedObject.setValue(route.name, forKey: Route.name)
+        managedObject.setValue(route.distanceInKilometers, forKey: Route.distance)
+        managedObject.setValue(route.startDate, forKey: Route.startDate)
+        managedObject.setValue(route.routeColor.rawValue, forKey: Route.color)
+        managedObject.setValue(WorkoutRoutePersistence.encodeCoordinates(route.coordinates), forKey: Route.coordinates)
     }
 
     static func encodeCoordinates(_ coords: [CLLocationCoordinate2D]) -> Data {
