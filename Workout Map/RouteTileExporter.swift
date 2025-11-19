@@ -44,7 +44,7 @@ final class RouteTileExporter {
 
     private func fetchTiles(tiles: [TileCoordinate], progress: ((Int, Int) -> Void)?) async throws -> [TileCoordinate: UIImage] {
         let total = tiles.count
-        try await withThrowingTaskGroup(of: (TileCoordinate, UIImage).self) { group in
+        return try await withThrowingTaskGroup(of: (TileCoordinate, UIImage).self) { group in
             for tile in tiles {
                 group.addTask { [zoomLevel, tileBaseURL] in
                     let url = tileBaseURL

@@ -206,7 +206,7 @@ extension ContentView {
         Task {
             do {
                 let image = try await exporter.render(routes: selectedRoutes) { downloaded, total in
-                    await MainActor.run {
+                    Task { @MainActor in
                         withAnimation(.spring()) {
                             exportProgress = ExportProgress(downloaded: downloaded, total: total)
                         }
