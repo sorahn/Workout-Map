@@ -44,6 +44,7 @@ final class WorkoutRouteStore: ObservableObject {
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
     private var hasAttemptedInitialLoad = false
+    private var hasRequestedHealthAccess = false
 
     private let maxWorkoutsToFetch = 30
 
@@ -68,22 +69,25 @@ final class WorkoutRouteStore: ObservableObject {
             throw WorkoutRouteStoreError.healthDataUnavailable
         }
 
-        if healthStore.authorizationStatus(for: workoutType) != .sharingAuthorized {
+        if !hasRequestedHealthAccess {
             state = .requestingAccess
             try await healthStore.requestAuthorization(toShare: [], read: [workoutType, routeType])
-
-            guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
-                throw WorkoutRouteStoreError.authorizationDenied
-            }
+            hasRequestedHealthAccess = true
         }
 
         state = .loading
 
-        let workouts = try await fetchRecentWorkouts(limit: maxWorkoutsToFetch)
-        let routes = try await buildRoutes(from: workouts)
+        do {
+            let workouts = try await fetchRecentWorkouts(limit: maxWorkoutsToFetch)
+            let routes = try await buildRoutes(from: workouts)
 
-        self.routes = routes
-        state = routes.isEmpty ? .empty : .loaded
+            self.routes = routes
+            state = routes.isEmpty ? .empty : .loaded
+        } catch let error as HKError where error.code == .errorAuthorizationDenied {
+            throw WorkoutRouteStoreError.authorizationDenied
+        } catch {
+            throw error
+        }
     }
 
     private func fetchRecentWorkouts(limit: Int) async throws -> [HKWorkout] {
