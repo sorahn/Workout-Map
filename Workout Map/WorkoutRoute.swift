@@ -11,11 +11,29 @@ import SwiftUI
 
 /// Simple model that represents a workout route loaded from HealthKit or local data.
 struct WorkoutRoute: Identifiable {
-    let id = UUID()
+    let id: UUID
     let name: String
     let distanceInKilometers: Double
     let coordinates: [CLLocationCoordinate2D]
-    let color: Color
+    let routeColor: RouteColor
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        distanceInKilometers: Double,
+        coordinates: [CLLocationCoordinate2D],
+        color: RouteColor
+    ) {
+        self.id = id
+        self.name = name
+        self.distanceInKilometers = distanceInKilometers
+        self.coordinates = coordinates
+        self.routeColor = color
+    }
+
+    var color: Color {
+        routeColor.color
+    }
 
     var formattedDistance: String {
         WorkoutRoute.formatDistance(distanceInKilometers)
@@ -122,5 +140,35 @@ extension Collection where Element == WorkoutRoute {
 
     var totalDistance: Double {
         reduce(0) { $0 + $1.distanceInKilometers }
+    }
+}
+
+// MARK: - Route color helpers
+
+extension WorkoutRoute {
+    enum RouteColor: String, Codable, CaseIterable {
+        case blue
+        case green
+        case orange
+        case brown
+        case teal
+        case purple
+        case pink
+        case red
+        case yellow
+
+        var color: Color {
+            switch self {
+            case .blue: return .blue
+            case .green: return .green
+            case .orange: return .orange
+            case .brown: return .brown
+            case .teal: return .teal
+            case .purple: return .purple
+            case .pink: return .pink
+            case .red: return .red
+            case .yellow: return .yellow
+            }
+        }
     }
 }

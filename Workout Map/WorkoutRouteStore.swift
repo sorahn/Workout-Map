@@ -54,10 +54,20 @@ final class WorkoutRouteStore: ObservableObject {
     private let healthStore = HKHealthStore()
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
+    private let cache: WorkoutRouteCache
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
 
     private let maxWorkoutsToFetch = HKObjectQueryNoLimit
+
+    init(cache: WorkoutRouteCache = WorkoutRouteCache()) {
+        self.cache = cache
+        let cachedRoutes = cache.loadRoutes()
+        if !cachedRoutes.isEmpty {
+            self.routes = cachedRoutes
+            self.state = .loaded
+        }
+    }
 
     func refreshWorkoutsIfNeeded() async {
         guard !hasAttemptedInitialLoad else { return }
@@ -101,6 +111,7 @@ final class WorkoutRouteStore: ObservableObject {
 
             self.routes = routes
             state = routes.isEmpty ? .empty : .loaded
+            cache.saveRoutes(routes)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -222,7 +233,7 @@ final class WorkoutRouteStore: ObservableObject {
         }
     }
 
-    private func color(for activityType: HKWorkoutActivityType) -> Color {
+    private func color(for activityType: HKWorkoutActivityType) -> WorkoutRoute.RouteColor {
         switch activityType {
         case .running:
             return .orange
