@@ -24,14 +24,13 @@ struct ContentView: View {
         }
         .ignoresSafeArea()
         .mapStyle(.standard(elevation: .realistic))
-        .mapControls {
-            MapUserLocationButton()
-            MapCompass()
-            MapPitchToggle()
-        }
-        .overlay(alignment: .topLeading) {
-            RouteLegendView(routes: routes)
-                .padding()
+        .overlay(alignment: .top) {
+            HStack(alignment: .top) {
+                RouteLegendView(routes: routes)
+                Spacer(minLength: 0)
+                MapControlsPanel()
+            }
+            .padding()
         }
         .task {
             guard case .automatic = cameraPosition,
@@ -74,6 +73,18 @@ private struct RouteLegendView: View {
         .padding(16)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+    }
+}
+
+private struct MapControlsPanel: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            MapUserLocationButton()
+            MapCompass()
+            MapPitchToggle()
+        }
+        .buttonBorderShape(.circle)
+        .controlSize(.large)
     }
 }
 
