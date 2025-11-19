@@ -54,26 +54,29 @@ final class WorkoutRouteStore: ObservableObject {
     private let healthStore = HKHealthStore()
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
-    private let cache: WorkoutRouteCache
+    private let persistence = WorkoutRoutePersistence.shared
     private let colorPalette: [WorkoutRoute.RouteColor] = [
         .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
     ]
     private var knownWorkoutIDs: Set<UUID> = []
-    private var latestSyncedStartDate: Date?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
+    private static let clearCacheDefaultsKey = "clear_cache_on_launch"
 
     private let maxWorkoutsToFetch = HKObjectQueryNoLimit
 
-    init(cache: WorkoutRouteCache? = nil) {
-        let cacheInstance = cache ?? WorkoutRouteCache()
-        self.cache = cacheInstance
-        let payload = cacheInstance.load()
-        let cachedRoutes = payload.routes
+    init() {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: Self.clearCacheDefaultsKey) {
+            persistence.clearAll(synchronous: true)
+            defaults.set(false, forKey: Self.clearCacheDefaultsKey)
+            defaults.synchronize()
+        }
+
+        let cachedRoutes = persistence.loadRoutes()
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
-        self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
         if !cachedRoutes.isEmpty {
-            self.routes = cachedRoutes
+            self.routes = cachedRoutes.sorted { $0.startDate > $1.startDate }
             self.state = .loaded
         }
     }
@@ -111,7 +114,7 @@ final class WorkoutRouteStore: ObservableObject {
         loadingProgress = nil
 
         do {
-            let workouts = try await fetchWorkouts(startingFrom: latestSyncedStartDate)
+            let workouts = try await fetchWorkouts()
 
             guard !workouts.isEmpty else {
                 loadingProgress = nil
@@ -121,7 +124,8 @@ final class WorkoutRouteStore: ObservableObject {
 
             loadingProgress = LoadingProgress(total: workouts.count, loaded: 0)
 
-            let existingRoutes = routes
+            var existingRoutes = routes
+            existingRoutes.sort { $0.startDate > $1.startDate }
             var newRoutes: [WorkoutRoute] = []
 
             for (index, workout) in workouts.enumerated() {
@@ -139,9 +143,10 @@ final class WorkoutRouteStore: ObservableObject {
                     color: colorForRoute(at: existingRoutes.count + newRoutes.count)
                 ) {
                     newRoutes.append(route)
+                    persistence.upsert(route)
                     knownWorkoutIDs.insert(workout.uuid)
-                    latestSyncedStartDate = max(latestSyncedStartDate ?? workout.startDate, workout.startDate)
-                    self.routes = newRoutes + existingRoutes
+                    let updated = (newRoutes + existingRoutes).sorted { $0.startDate > $1.startDate }
+                    self.routes = updated
                 }
             }
 
@@ -152,10 +157,9 @@ final class WorkoutRouteStore: ObservableObject {
                 return
             }
 
-            let mergedRoutes = newRoutes + existingRoutes
+            let mergedRoutes = (newRoutes + existingRoutes).sorted { $0.startDate > $1.startDate }
             self.routes = mergedRoutes
             state = .loaded
-            cache.save(routes: mergedRoutes, cameraRegion: nil)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -165,19 +169,24 @@ final class WorkoutRouteStore: ObservableObject {
         }
     }
 
-    private func fetchWorkouts(startingFrom date: Date?) async throws -> [HKWorkout] {
+    func clearCache() {
+        persistence.clearAll { [weak self] in
+            guard let self else { return }
+            self.routes = []
+            self.knownWorkoutIDs.removeAll()
+            self.state = .empty
+            UserDefaults.standard.set(false, forKey: Self.clearCacheDefaultsKey)
+            UserDefaults.standard.synchronize()
+        }
+    }
+
+    private func fetchWorkouts() async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            let predicate: NSPredicate?
-            if let date {
-                predicate = HKQuery.predicateForSamples(withStart: date, end: nil, options: .strictStartDate)
-            } else {
-                predicate = nil
-            }
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
-                predicate: predicate,
+                predicate: nil,
                 limit: maxWorkoutsToFetch,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, error in

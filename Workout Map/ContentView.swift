@@ -25,15 +25,15 @@ struct ContentView: View {
         _mapViewStore = StateObject(wrappedValue: MapViewStore(workoutStore: store))
     }
 
-    var body: some View {
-        ZStack(alignment: .center) {
-            mapLayer
-            stateOverlay
-        }
-        .task {
-            await workoutStore.refreshWorkoutsIfNeeded()
-        }
+var body: some View {
+    ZStack(alignment: .center) {
+        mapLayer
+        stateOverlay
     }
+    .task {
+        await workoutStore.refreshWorkoutsIfNeeded()
+    }
+}
 
     private var mapLayer: some View {
         Map(position: $mapViewStore.cameraPosition, interactionModes: .all) {
