@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var shouldFitRoutesOnUpdate: Bool
     @State private var hasManuallyAdjustedCamera = false
     @State private var hasCenteredOnUser = false
+    @State private var isProgrammaticCameraChange: Bool
 
     init() {
         let store = WorkoutRouteStore()
@@ -24,9 +25,11 @@ struct ContentView: View {
         if let cachedRegion = store.initialCameraRegion {
             _cameraPosition = State(initialValue: .region(cachedRegion))
             _shouldFitRoutesOnUpdate = State(initialValue: false)
+            _isProgrammaticCameraChange = State(initialValue: true)
         } else {
             _cameraPosition = State(initialValue: .automatic)
             _shouldFitRoutesOnUpdate = State(initialValue: true)
+            _isProgrammaticCameraChange = State(initialValue: true)
         }
     }
 
@@ -35,9 +38,11 @@ struct ContentView: View {
         if let cachedRegion = store.initialCameraRegion {
             _cameraPosition = State(initialValue: .region(cachedRegion))
             _shouldFitRoutesOnUpdate = State(initialValue: false)
+            _isProgrammaticCameraChange = State(initialValue: true)
         } else {
             _cameraPosition = State(initialValue: .automatic)
             _shouldFitRoutesOnUpdate = State(initialValue: true)
+            _isProgrammaticCameraChange = State(initialValue: true)
         }
     }
 
@@ -54,8 +59,7 @@ struct ContentView: View {
                   shouldFitRoutesOnUpdate,
                   !hasManuallyAdjustedCamera,
                   let region = newRoutes.combinedRegion() else { return }
-            cameraPosition = .region(region)
-            workoutStore.persistCameraRegion(region)
+            setCameraRegion(region)
             shouldFitRoutesOnUpdate = false
         }
         .onReceive(workoutStore.$state) { state in
@@ -88,11 +92,13 @@ struct ContentView: View {
             }
         }
         .onMapCameraChange(frequency: .onEnd) { context in
-            guard let region = context.region else { return }
-            workoutStore.persistCameraRegion(region)
-            if context.reason == .userInteraction {
+            let region = context.region
+            if isProgrammaticCameraChange {
+                isProgrammaticCameraChange = false
+            } else {
                 hasManuallyAdjustedCamera = true
             }
+            workoutStore.persistCameraRegion(region)
         }
     }
 
@@ -205,6 +211,11 @@ extension ContentView {
             center: coordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
         )
+        setCameraRegion(region)
+    }
+
+    private func setCameraRegion(_ region: MKCoordinateRegion) {
+        isProgrammaticCameraChange = true
         cameraPosition = .region(region)
         workoutStore.persistCameraRegion(region)
     }
