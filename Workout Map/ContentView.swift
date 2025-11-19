@@ -52,7 +52,15 @@ struct ContentView: View {
         .overlay(alignment: .topLeading) {
             if !workoutStore.routes.isEmpty {
                 RouteLegendView(routes: workoutStore.routes)
-                    .padding()
+                    .padding(.leading)
+                    .padding(.top, workoutStore.loadingProgress == nil ? 16 : 110)
+            }
+        }
+        .overlay(alignment: .top) {
+            if let progress = workoutStore.loadingProgress {
+                LoadingStatusBar(progress: progress)
+                    .padding(.horizontal)
+                    .padding(.top)
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -71,11 +79,7 @@ struct ContentView: View {
                 showProgress: true
             )
         case .loading:
-            StatusOverlayView(
-                title: "Loading workouts...",
-                message: "Pulling your recent Health workouts and routes.",
-                showProgress: true
-            )
+            EmptyView()
         case .empty:
             StatusOverlayView(
                 title: "No workout routes yet",
@@ -177,6 +181,36 @@ private struct StatusOverlayView: View {
         .padding(24)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .padding()
+    }
+}
+
+private struct LoadingStatusBar: View {
+    let progress: WorkoutRouteStore.LoadingProgress
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Loading workouts")
+                        .font(.headline)
+                    Text("\(progress.loaded) of \(progress.total)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            ProgressView(
+                value: Double(progress.loaded),
+                total: Double(max(progress.total, 1))
+            )
+            .progressViewStyle(.linear)
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
     }
 }
 

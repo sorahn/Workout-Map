@@ -37,8 +37,19 @@ final class WorkoutRouteStore: ObservableObject {
         }
     }
 
+    struct LoadingProgress: Equatable {
+        let total: Int
+        let loaded: Int
+
+        var fractionCompleted: Double {
+            guard total > 0 else { return 0 }
+            return Double(loaded) / Double(total)
+        }
+    }
+
     @Published private(set) var routes: [WorkoutRoute] = []
     @Published private(set) var state: State = .idle
+    @Published private(set) var loadingProgress: LoadingProgress?
 
     private let healthStore = HKHealthStore()
     private let workoutType = HKObjectType.workoutType()
@@ -46,7 +57,7 @@ final class WorkoutRouteStore: ObservableObject {
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
 
-    private let maxWorkoutsToFetch = 30
+    private let maxWorkoutsToFetch = HKObjectQueryNoLimit
 
     func refreshWorkoutsIfNeeded() async {
         guard !hasAttemptedInitialLoad else { return }
@@ -55,6 +66,8 @@ final class WorkoutRouteStore: ObservableObject {
     }
 
     func refreshWorkouts() async {
+        loadingProgress = nil
+
         do {
             try await loadWorkouts()
         } catch let error as WorkoutRouteStoreError {
@@ -76,33 +89,34 @@ final class WorkoutRouteStore: ObservableObject {
         }
 
         state = .loading
+        loadingProgress = nil
 
         do {
-            let workouts = try await fetchRecentWorkouts(limit: maxWorkoutsToFetch)
+            let workouts = try await fetchAllWorkouts(limit: maxWorkoutsToFetch)
+            if !workouts.isEmpty {
+                loadingProgress = LoadingProgress(total: workouts.count, loaded: 0)
+            }
             let routes = try await buildRoutes(from: workouts)
+            loadingProgress = nil
 
             self.routes = routes
             state = routes.isEmpty ? .empty : .loaded
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
+            loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
         } catch {
+            loadingProgress = nil
             throw error
         }
     }
 
-    private func fetchRecentWorkouts(limit: Int) async throws -> [HKWorkout] {
+    private func fetchAllWorkouts(limit: Int) async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
-            let predicate = HKQuery.predicateForSamples(
-                withStart: Calendar.current.date(byAdding: .month, value: -6, to: Date()),
-                end: Date(),
-                options: []
-            )
-
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
-                predicate: predicate,
+                predicate: nil,
                 limit: limit,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, error in
@@ -122,7 +136,13 @@ final class WorkoutRouteStore: ObservableObject {
     private func buildRoutes(from workouts: [HKWorkout]) async throws -> [WorkoutRoute] {
         var builtRoutes: [WorkoutRoute] = []
 
-        for workout in workouts {
+        for (index, workout) in workouts.enumerated() {
+            defer {
+                loadingProgress = LoadingProgress(
+                    total: workouts.count,
+                    loaded: index + 1
+                )
+            }
             let routeSamples = try await fetchRouteSamples(for: workout)
             guard !routeSamples.isEmpty else { continue }
 
