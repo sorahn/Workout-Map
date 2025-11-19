@@ -49,13 +49,6 @@ struct ContentView: View {
         }
         .ignoresSafeArea()
         .mapStyle(.standard(elevation: .realistic))
-        .overlay(alignment: .topLeading) {
-            if !workoutStore.routes.isEmpty {
-                RouteLegendView(routes: workoutStore.routes)
-                    .padding(.leading)
-                    .padding(.top, workoutStore.loadingProgress == nil ? 16 : 110)
-            }
-        }
         .overlay(alignment: .top) {
             if let progress = workoutStore.loadingProgress {
                 LoadingStatusBar(progress: progress)
@@ -99,42 +92,6 @@ struct ContentView: View {
         default:
             EmptyView()
         }
-    }
-}
-
-private struct RouteLegendView: View {
-    let routes: [WorkoutRoute]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Workout Routes")
-                    .font(.headline)
-                Text("\(routes.count) workouts • \(WorkoutRoute.formatDistance(routes.totalDistance)) total")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            ForEach(routes) { route in
-                HStack(spacing: 10) {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(route.color.gradient)
-                        .frame(width: 16, height: 16)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(route.name)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Text(route.formattedDistance)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
     }
 }
 
