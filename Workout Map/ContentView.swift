@@ -43,7 +43,7 @@ struct ContentView: View {
                 MapPolyline(coordinates: route.coordinates)
                     .stroke(
                         route.color.gradient.opacity(0.85),
-                        style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
+                        style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
                     )
             }
         }
