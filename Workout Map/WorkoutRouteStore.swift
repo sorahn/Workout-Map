@@ -223,8 +223,6 @@ final class WorkoutRouteStore: ObservableObject {
             color: color
         )
     }
-    func persistCameraRegion(_ region: MKCoordinateRegion) {}
-
     private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {
         try await withCheckedThrowingContinuation { continuation in
             let predicate = HKQuery.predicateForObjects(from: workout)
