@@ -55,6 +55,9 @@ final class WorkoutRouteStore: ObservableObject {
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
     private let cache: WorkoutRouteCache
+    private let colorPalette: [WorkoutRoute.RouteColor] = [
+        .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
+    ]
     private var cachedCameraRegion: MKCoordinateRegion?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
@@ -117,7 +120,10 @@ final class WorkoutRouteStore: ObservableObject {
             var refreshedRoutes: [WorkoutRoute] = []
 
             for (index, workout) in workouts.enumerated() {
-                if let route = try await buildRoute(for: workout) {
+                if let route = try await buildRoute(
+                    for: workout,
+                    color: colorForRoute(at: refreshedRoutes.count)
+                ) {
                     refreshedRoutes.append(route)
                     self.routes = refreshedRoutes
                 } else if refreshedRoutes.isEmpty {
@@ -166,7 +172,12 @@ final class WorkoutRouteStore: ObservableObject {
         }
     }
 
-    private func buildRoute(for workout: HKWorkout) async throws -> WorkoutRoute? {
+    private func colorForRoute(at index: Int) -> WorkoutRoute.RouteColor {
+        guard !colorPalette.isEmpty else { return .sunrise }
+        return colorPalette[index % colorPalette.count]
+    }
+
+    private func buildRoute(for workout: HKWorkout, color: WorkoutRoute.RouteColor) async throws -> WorkoutRoute? {
         let routeSamples = try await fetchRouteSamples(for: workout)
         guard !routeSamples.isEmpty else { return nil }
 
@@ -185,10 +196,9 @@ final class WorkoutRouteStore: ObservableObject {
             name: workout.workoutActivityType.displayName,
             distanceInKilometers: kilometers,
             coordinates: allCoordinates,
-            color: color(for: workout.workoutActivityType)
+            color: color
         )
     }
-
     func persistCameraRegion(_ region: MKCoordinateRegion) {
         cachedCameraRegion = region
         cache.save(routes: routes, cameraRegion: region)
@@ -244,23 +254,6 @@ final class WorkoutRouteStore: ObservableObject {
             }
 
             healthStore.execute(routeQuery)
-        }
-    }
-
-    private func color(for activityType: HKWorkoutActivityType) -> WorkoutRoute.RouteColor {
-        switch activityType {
-        case .running:
-            return .orange
-        case .walking:
-            return .green
-        case .cycling:
-            return .blue
-        case .hiking:
-            return .brown
-        case .swimming:
-            return .teal
-        default:
-            return .purple
         }
     }
 

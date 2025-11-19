@@ -77,7 +77,7 @@ struct ContentView: View {
             ForEach(workoutStore.routes) { route in
                 MapPolyline(coordinates: route.coordinates)
                     .stroke(
-                        route.color.gradient.opacity(0.85),
+                        route.strokeStyle,
                         style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
                     )
             }

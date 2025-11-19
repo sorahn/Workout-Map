@@ -35,6 +35,10 @@ struct WorkoutRoute: Identifiable {
         routeColor.color
     }
 
+    var strokeStyle: LinearGradient {
+        routeColor.gradientStyle
+    }
+
     var formattedDistance: String {
         WorkoutRoute.formatDistance(distanceInKilometers)
     }
@@ -70,7 +74,7 @@ enum WorkoutDataProvider {
                 CLLocationCoordinate2D(latitude: 37.3229, longitude: -122.0159),
                 CLLocationCoordinate2D(latitude: 37.3304, longitude: -122.0084)
             ],
-            color: .blue
+            color: .sunrise
         ),
         WorkoutRoute(
             name: "Trail Climb",
@@ -84,7 +88,7 @@ enum WorkoutDataProvider {
                 CLLocationCoordinate2D(latitude: 37.3508, longitude: -122.1110),
                 CLLocationCoordinate2D(latitude: 37.3590, longitude: -122.1032)
             ],
-            color: .green
+            color: .seafoam
         ),
         WorkoutRoute(
             name: "Recovery Spin",
@@ -99,7 +103,7 @@ enum WorkoutDataProvider {
                 CLLocationCoordinate2D(latitude: 37.7776, longitude: -122.4057),
                 CLLocationCoordinate2D(latitude: 37.7852, longitude: -122.4019)
             ],
-            color: .orange
+            color: .lavender
         )
     ]
 }
@@ -147,27 +151,65 @@ extension Collection where Element == WorkoutRoute {
 
 extension WorkoutRoute {
     enum RouteColor: String, Codable, CaseIterable {
-        case blue
-        case green
-        case orange
-        case brown
-        case teal
-        case purple
-        case pink
-        case red
-        case yellow
+        case sunrise
+        case peach
+        case seafoam
+        case lavender
+        case sky
+        case mint
+        case butter
+        case rose
 
         var color: Color {
+            gradientColors.first ?? .blue
+        }
+
+        var gradientStyle: LinearGradient {
+            LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+        }
+
+        private var gradientColors: [Color] {
             switch self {
-            case .blue: return .blue
-            case .green: return .green
-            case .orange: return .orange
-            case .brown: return .brown
-            case .teal: return .teal
-            case .purple: return .purple
-            case .pink: return .pink
-            case .red: return .red
-            case .yellow: return .yellow
+            case .sunrise:
+                return [
+                    Color(red: 1.0, green: 0.87, blue: 0.80),
+                    Color(red: 1.0, green: 0.73, blue: 0.63)
+                ]
+            case .peach:
+                return [
+                    Color(red: 1.0, green: 0.82, blue: 0.73),
+                    Color(red: 0.99, green: 0.70, blue: 0.60)
+                ]
+            case .seafoam:
+                return [
+                    Color(red: 0.78, green: 0.93, blue: 0.88),
+                    Color(red: 0.64, green: 0.84, blue: 0.79)
+                ]
+            case .lavender:
+                return [
+                    Color(red: 0.87, green: 0.84, blue: 0.96),
+                    Color(red: 0.74, green: 0.71, blue: 0.91)
+                ]
+            case .sky:
+                return [
+                    Color(red: 0.78, green: 0.90, blue: 0.98),
+                    Color(red: 0.63, green: 0.80, blue: 0.94)
+                ]
+            case .mint:
+                return [
+                    Color(red: 0.80, green: 0.96, blue: 0.82),
+                    Color(red: 0.66, green: 0.88, blue: 0.74)
+                ]
+            case .butter:
+                return [
+                    Color(red: 1.0, green: 0.95, blue: 0.78),
+                    Color(red: 0.98, green: 0.87, blue: 0.60)
+                ]
+            case .rose:
+                return [
+                    Color(red: 0.97, green: 0.82, blue: 0.88),
+                    Color(red: 0.94, green: 0.70, blue: 0.79)
+                ]
             }
         }
     }
