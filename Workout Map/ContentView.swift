@@ -94,7 +94,7 @@ struct ContentView: View {
                     .background(.regularMaterial, in: Circle())
             }
             .padding(.leading, 16)
-            .padding(.bottom, exportProgress == nil ? 0 : 60)
+            .padding(.bottom, 0)
         }
         .overlay(alignment: .topLeading) {
             if selectionCount > 0 {
@@ -137,7 +137,7 @@ struct ContentView: View {
                 .frame(width: 48, height: 48)
                 .background(.regularMaterial, in: Circle())
                 .padding(.trailing, 16)
-                .padding(.bottom, exportProgress == nil ? 0 : 60)
+                .padding(.bottom, 0)
             }
         }
         .onMapCameraChange(frequency: .onEnd) { context in

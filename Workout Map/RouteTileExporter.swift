@@ -24,6 +24,14 @@ final class RouteTileExporter {
     private let tileSize: CGFloat = 256
     private let paddingTiles = 1
     private let tileBaseURL = URL(string: "https://tile.openstreetmap.org")!
+    private let cacheDirectory: URL
+
+    init() {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let dir = caches.appendingPathComponent("RouteTileCache", isDirectory: true)
+        cacheDirectory = dir
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
 
     func render(routes: [WorkoutRoute], progress: ((Int, Int) -> Void)? = nil) async throws -> UIImage {
         guard let bounds = routes.combinedBoundingBox() else {
@@ -120,6 +128,13 @@ final class RouteTileExporter {
     }
 
     private func fetchTileImage(_ tile: TileCoordinate) async throws -> UIImage {
+        let cacheURL = cachedURL(for: tile)
+        if FileManager.default.fileExists(atPath: cacheURL.path),
+           let data = try? Data(contentsOf: cacheURL),
+           let image = UIImage(data: data) {
+            return image
+        }
+
         let url = tileBaseURL
             .appendingPathComponent("\(zoomLevel)")
             .appendingPathComponent("\(tile.x)")
@@ -128,7 +143,17 @@ final class RouteTileExporter {
         guard let image = UIImage(data: data) else {
             throw ExportError.tileDownloadFailed
         }
+        let parent = cacheURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        try? data.write(to: cacheURL)
         return image
+    }
+
+    private func cachedURL(for tile: TileCoordinate) -> URL {
+        cacheDirectory
+            .appendingPathComponent("\(zoomLevel)", isDirectory: true)
+            .appendingPathComponent("\(tile.x)", isDirectory: true)
+            .appendingPathComponent("\(tile.y).png", isDirectory: false)
     }
 
     private func tileBounds(for bounds: RouteBoundingBox) -> (tiles: [TileCoordinate], minX: Int, minY: Int) {
