@@ -55,11 +55,9 @@ final class WorkoutRouteStore: ObservableObject {
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
     private let cache: WorkoutRouteCache
-    private let cameraRegionStore = CameraRegionStore()
     private let colorPalette: [WorkoutRoute.RouteColor] = [
         .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
     ]
-    private var cachedCameraRegion: MKCoordinateRegion?
     private var knownWorkoutIDs: Set<UUID> = []
     private var latestSyncedStartDate: Date?
     private var hasAttemptedInitialLoad = false
@@ -72,17 +70,12 @@ final class WorkoutRouteStore: ObservableObject {
         self.cache = cacheInstance
         let payload = cacheInstance.load()
         let cachedRoutes = payload.routes
-        self.cachedCameraRegion = cameraRegionStore.loadRegion() ?? payload.cameraRegion
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
         self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
         if !cachedRoutes.isEmpty {
             self.routes = cachedRoutes
             self.state = .loaded
         }
-    }
-
-    var initialCameraRegion: MKCoordinateRegion? {
-        cachedCameraRegion
     }
 
     func refreshWorkoutsIfNeeded() async {
@@ -162,7 +155,7 @@ final class WorkoutRouteStore: ObservableObject {
             let mergedRoutes = newRoutes + existingRoutes
             self.routes = mergedRoutes
             state = .loaded
-            cache.save(routes: mergedRoutes, cameraRegion: cachedCameraRegion)
+            cache.save(routes: mergedRoutes, cameraRegion: nil)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -230,10 +223,7 @@ final class WorkoutRouteStore: ObservableObject {
             color: color
         )
     }
-    func persistCameraRegion(_ region: MKCoordinateRegion) {
-        cachedCameraRegion = region
-        cameraRegionStore.saveRegion(region)
-    }
+    func persistCameraRegion(_ region: MKCoordinateRegion) {}
 
     private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {
         try await withCheckedThrowingContinuation { continuation in

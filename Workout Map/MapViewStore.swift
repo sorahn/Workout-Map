@@ -25,15 +25,9 @@ final class MapViewStore: ObservableObject {
     init(workoutStore: WorkoutRouteStore) {
         self.workoutStore = workoutStore
 
-        if let cachedRegion = workoutStore.initialCameraRegion {
-            cameraPosition = .region(cachedRegion)
-            shouldFitRoutesOnUpdate = false
-            isProgrammaticCameraChange = true
-        } else {
-            cameraPosition = .automatic
-            shouldFitRoutesOnUpdate = true
-            isProgrammaticCameraChange = true
-        }
+        cameraPosition = .automatic
+        shouldFitRoutesOnUpdate = true
+        isProgrammaticCameraChange = true
 
         workoutStore.$routes
             .receive(on: RunLoop.main)
@@ -113,8 +107,8 @@ final class MapViewStore: ObservableObject {
             maxLon = max(maxLon, coord.longitude)
         }
 
-        let latDelta = max((maxLat - minLat) * (1 + paddingFactor), 0.005)
-        let lonDelta = max((maxLon - minLon) * (1 + paddingFactor), 0.005)
+        let latDelta = max((maxLat - minLat) * (1 + paddingFactor), 0.1)
+        let lonDelta = max((maxLon - minLon) * (1 + paddingFactor), 0.1)
 
         let center = CLLocationCoordinate2D(
             latitude: (minLat + maxLat) / 2,
