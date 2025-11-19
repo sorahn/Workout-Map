@@ -12,6 +12,7 @@ import SwiftUI
 @MainActor
 final class MapViewStore: ObservableObject {
     @Published var cameraPosition: MapCameraPosition
+    @Published var currentVisibleRegion: MKCoordinateRegion?
 
     private var hasCenteredOnLatestRoute = false
 
@@ -52,6 +53,7 @@ final class MapViewStore: ObservableObject {
               let region = MapViewStore.regionForRoute(latestRoute) else { return }
 
         setCameraRegion(region)
+        hasCenteredOnLatestRoute = true
     }
 
     private func handleStateChange(_ state: WorkoutRouteStore.State) {
@@ -75,6 +77,11 @@ final class MapViewStore: ObservableObject {
         withAnimation(.easeInOut(duration: 0.8)) {
             cameraPosition = .region(region)
         }
+        currentVisibleRegion = region
+    }
+
+    func updateVisibleRegion(_ region: MKCoordinateRegion?) {
+        currentVisibleRegion = region
     }
 }
 

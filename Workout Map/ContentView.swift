@@ -13,6 +13,7 @@ import MapKit
 struct ContentView: View {
     @StateObject private var workoutStore: WorkoutRouteStore
     @StateObject private var mapViewStore: MapViewStore
+    @State private var selectedVisibleCount = 0
 
     init() {
         let store = WorkoutRouteStore()
@@ -54,6 +55,28 @@ var body: some View {
                     .padding(.top)
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            Button(action: selectVisibleWorkouts) {
+                Image(systemName: "rectangle.dashed")
+                    .font(.title2)
+                    .padding(12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .padding()
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if selectedVisibleCount > 0 {
+                Label("\(selectedVisibleCount) selected", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding()
+            }
+        }
+        .onMapCameraChange(frequency: .onEnd) { context in
+            mapViewStore.updateVisibleRegion(context.region)
+        }
     }
 
     @ViewBuilder
@@ -88,6 +111,17 @@ var body: some View {
         default:
             EmptyView()
         }
+    }
+}
+
+extension ContentView {
+    private func selectVisibleWorkouts() {
+        guard let region = mapViewStore.currentVisibleRegion else {
+            selectedVisibleCount = 0
+            return
+        }
+        let count = workoutStore.routes.filter { $0.intersects(region: region) }.count
+        selectedVisibleCount = count
     }
 }
 

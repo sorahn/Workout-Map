@@ -225,4 +225,30 @@ extension WorkoutRoute {
             }
         }
     }
+
+    func intersects(region: MKCoordinateRegion) -> Bool {
+        guard let first = coordinates.first else { return false }
+
+        var minLat = first.latitude
+        var maxLat = first.latitude
+        var minLon = first.longitude
+        var maxLon = first.longitude
+
+        for coord in coordinates {
+            minLat = min(minLat, coord.latitude)
+            maxLat = max(maxLat, coord.latitude)
+            minLon = min(minLon, coord.longitude)
+            maxLon = max(maxLon, coord.longitude)
+        }
+
+        let regionMinLat = region.center.latitude - region.span.latitudeDelta / 2
+        let regionMaxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let regionMinLon = region.center.longitude - region.span.longitudeDelta / 2
+        let regionMaxLon = region.center.longitude + region.span.longitudeDelta / 2
+
+        let latOverlap = !(maxLat < regionMinLat || minLat > regionMaxLat)
+        let lonOverlap = !(maxLon < regionMinLon || minLon > regionMaxLon)
+
+        return latOverlap && lonOverlap
+    }
 }
