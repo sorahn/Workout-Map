@@ -77,18 +77,15 @@ final class RouteTileExporter {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height))
         return renderer.image { _ in
             for tile in tiles {
+                let rect = CGRect(x: CGFloat(tile.x - minTileX) * tileSize,
+                                  y: CGFloat(tile.y - minTileY) * tileSize,
+                                  width: tileSize,
+                                  height: tileSize)
                 if let image = tileImages[tile] {
-                    let rect = CGRect(x: CGFloat(tile.x - minTileX) * tileSize,
-                                      y: CGFloat(tile.y - minTileY) * tileSize,
-                                      width: tileSize,
-                                      height: tileSize)
                     image.draw(in: rect, blendMode: .normal, alpha: 0.5)
                 } else {
                     UIColor.systemGray6.setFill()
-                    CGRect(x: CGFloat(tile.x - minTileX) * tileSize,
-                           y: CGFloat(tile.y - minTileY) * tileSize,
-                           width: tileSize,
-                           height: tileSize).fill()
+                    UIBezierPath(rect: rect).fill()
                 }
             }
 

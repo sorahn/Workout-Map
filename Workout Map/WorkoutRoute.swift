@@ -287,10 +287,10 @@ extension Array where Element == WorkoutRoute {
         for route in self {
             guard let box = route.boundingBox() else { continue }
             if var existing = overall {
-                existing.minLatitude = min(existing.minLatitude, box.minLatitude)
-                existing.maxLatitude = max(existing.maxLatitude, box.maxLatitude)
-                existing.minLongitude = min(existing.minLongitude, box.minLongitude)
-                existing.maxLongitude = max(existing.maxLongitude, box.maxLongitude)
+                existing.minLatitude = Swift.min(existing.minLatitude, box.minLatitude)
+                existing.maxLatitude = Swift.max(existing.maxLatitude, box.maxLatitude)
+                existing.minLongitude = Swift.min(existing.minLongitude, box.minLongitude)
+                existing.maxLongitude = Swift.max(existing.maxLongitude, box.maxLongitude)
                 overall = existing
             } else {
                 overall = box
