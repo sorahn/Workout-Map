@@ -55,11 +55,11 @@ final class WorkoutRouteStore: ObservableObject {
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
     private let cache: WorkoutRouteCache
+    private let cameraRegionStore = CameraRegionStore()
     private let colorPalette: [WorkoutRoute.RouteColor] = [
         .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
     ]
     private var cachedCameraRegion: MKCoordinateRegion?
-    private var pendingCameraSaveTask: Task<Void, Never>?
     private var knownWorkoutIDs: Set<UUID> = []
     private var latestSyncedStartDate: Date?
     private var hasAttemptedInitialLoad = false
@@ -71,7 +71,7 @@ final class WorkoutRouteStore: ObservableObject {
         self.cache = cache
         let payload = cache.load()
         let cachedRoutes = payload.routes
-        self.cachedCameraRegion = payload.cameraRegion
+        self.cachedCameraRegion = cameraRegionStore.loadRegion() ?? payload.cameraRegion
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
         self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
         if !cachedRoutes.isEmpty {
@@ -231,12 +231,7 @@ final class WorkoutRouteStore: ObservableObject {
     }
     func persistCameraRegion(_ region: MKCoordinateRegion) {
         cachedCameraRegion = region
-        pendingCameraSaveTask?.cancel()
-        pendingCameraSaveTask = Task { [weak self, cache] in
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            guard let self, !Task.isCancelled else { return }
-            cache.save(routes: self.routes, cameraRegion: region)
-        }
+        cameraRegionStore.saveRegion(region)
     }
 
     private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {
