@@ -1,0 +1,274 @@
+//
+//  WorkoutRouteStore.swift
+//  Workout Map
+//
+//  Created by Codex on 11/18/25.
+//
+
+import Foundation
+import HealthKit
+import MapKit
+import SwiftUI
+
+@MainActor
+final class WorkoutRouteStore: ObservableObject {
+    enum State: Equatable {
+        case idle
+        case requestingAccess
+        case loading
+        case loaded
+        case empty
+        case error(String)
+
+        static func == (lhs: State, rhs: State) -> Bool {
+            switch (lhs, rhs) {
+            case (.idle, .idle),
+                 (.requestingAccess, .requestingAccess),
+                 (.loading, .loading),
+                 (.loaded, .loaded),
+                 (.empty, .empty):
+                return true
+            case let (.error(a), .error(b)):
+                return a == b
+            default:
+                return false
+            }
+        }
+    }
+
+    @Published private(set) var routes: [WorkoutRoute] = []
+    @Published private(set) var state: State = .idle
+
+    private let healthStore = HKHealthStore()
+    private let workoutType = HKObjectType.workoutType()
+    private let routeType = HKSeriesType.workoutRoute()
+    private var hasAttemptedInitialLoad = false
+
+    private let maxWorkoutsToFetch = 30
+
+    func refreshWorkoutsIfNeeded() async {
+        guard !hasAttemptedInitialLoad else { return }
+        hasAttemptedInitialLoad = true
+        await refreshWorkouts()
+    }
+
+    func refreshWorkouts() async {
+        do {
+            try await loadWorkouts()
+        } catch let error as WorkoutRouteStoreError {
+            state = .error(error.errorDescription ?? "Something went wrong.")
+        } catch {
+            state = .error(error.localizedDescription)
+        }
+    }
+
+    private func loadWorkouts() async throws {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw WorkoutRouteStoreError.healthDataUnavailable
+        }
+
+        if healthStore.authorizationStatus(for: workoutType) != .sharingAuthorized {
+            state = .requestingAccess
+            try await healthStore.requestAuthorization(toShare: [], read: [workoutType, routeType])
+
+            guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
+                throw WorkoutRouteStoreError.authorizationDenied
+            }
+        }
+
+        state = .loading
+
+        let workouts = try await fetchRecentWorkouts(limit: maxWorkoutsToFetch)
+        let routes = try await buildRoutes(from: workouts)
+
+        self.routes = routes
+        state = routes.isEmpty ? .empty : .loaded
+    }
+
+    private func fetchRecentWorkouts(limit: Int) async throws -> [HKWorkout] {
+        try await withCheckedThrowingContinuation { continuation in
+            let predicate = HKQuery.predicateForSamples(
+                withStart: Calendar.current.date(byAdding: .month, value: -6, to: Date()),
+                end: Date(),
+                options: []
+            )
+
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+            let query = HKSampleQuery(
+                sampleType: workoutType,
+                predicate: predicate,
+                limit: limit,
+                sortDescriptors: [sortDescriptor]
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                let workouts = samples as? [HKWorkout] ?? []
+                continuation.resume(returning: workouts)
+            }
+
+            healthStore.execute(query)
+        }
+    }
+
+    private func buildRoutes(from workouts: [HKWorkout]) async throws -> [WorkoutRoute] {
+        var builtRoutes: [WorkoutRoute] = []
+
+        for workout in workouts {
+            let routeSamples = try await fetchRouteSamples(for: workout)
+            guard !routeSamples.isEmpty else { continue }
+
+            var allCoordinates: [CLLocationCoordinate2D] = []
+            for routeSample in routeSamples {
+                let coordinates = try await readCoordinates(for: routeSample)
+                allCoordinates.append(contentsOf: coordinates)
+            }
+
+            guard allCoordinates.count > 1 else { continue }
+
+            let meters = workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? Self.estimateDistance(from: allCoordinates)
+            let kilometers = meters / 1000
+
+            let route = WorkoutRoute(
+                name: workout.workoutActivityType.displayName,
+                distanceInKilometers: kilometers,
+                coordinates: allCoordinates,
+                color: color(for: workout.workoutActivityType)
+            )
+            builtRoutes.append(route)
+        }
+
+        return builtRoutes
+    }
+
+    private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {
+        try await withCheckedThrowingContinuation { continuation in
+            let predicate = HKQuery.predicateForObjects(from: workout)
+            let query = HKSampleQuery(
+                sampleType: routeType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                guard let routes = samples as? [HKWorkoutRoute] else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                continuation.resume(returning: routes)
+            }
+
+            healthStore.execute(query)
+        }
+    }
+
+    private func readCoordinates(for route: HKWorkoutRoute) async throws -> [CLLocationCoordinate2D] {
+        try await withCheckedThrowingContinuation { continuation in
+            var collectedCoordinates: [CLLocationCoordinate2D] = []
+            var hasCompleted = false
+
+            let routeQuery = HKWorkoutRouteQuery(route: route) { _, locations, done, error in
+                if hasCompleted { return }
+
+                if let error {
+                    hasCompleted = true
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                if let locations {
+                    collectedCoordinates.append(contentsOf: locations.map(\.coordinate))
+                }
+
+                if done {
+                    hasCompleted = true
+                    continuation.resume(returning: collectedCoordinates)
+                }
+            }
+
+            healthStore.execute(routeQuery)
+        }
+    }
+
+    private func color(for activityType: HKWorkoutActivityType) -> Color {
+        switch activityType {
+        case .running:
+            return .orange
+        case .walking:
+            return .green
+        case .cycling:
+            return .blue
+        case .hiking:
+            return .brown
+        case .swimming:
+            return .teal
+        default:
+            return .purple
+        }
+    }
+
+    private static func estimateDistance(from coordinates: [CLLocationCoordinate2D]) -> Double {
+        guard coordinates.count > 1 else { return 0 }
+
+        var distance: CLLocationDistance = 0
+        for index in 1..<coordinates.count {
+            let start = CLLocation(latitude: coordinates[index - 1].latitude, longitude: coordinates[index - 1].longitude)
+            let end = CLLocation(latitude: coordinates[index].latitude, longitude: coordinates[index].longitude)
+            distance += end.distance(from: start)
+        }
+
+        return distance
+    }
+}
+
+private enum WorkoutRouteStoreError: LocalizedError {
+    case healthDataUnavailable
+    case authorizationDenied
+
+    var errorDescription: String? {
+        switch self {
+        case .healthDataUnavailable:
+            return "Health data isn't available on this device."
+        case .authorizationDenied:
+            return "Workout access hasn't been granted. You can update this inside the Health app."
+        }
+    }
+}
+
+private extension HKWorkoutActivityType {
+    var displayName: String {
+        switch self {
+        case .running: return "Run"
+        case .walking: return "Walk"
+        case .cycling: return "Ride"
+        case .hiking: return "Hike"
+        case .swimming: return "Swim"
+        case .rowing: return "Row"
+        case .paddleSports: return "Paddle"
+        case .wheelchairRunPace: return "Wheelchair Run"
+        case .wheelchairWalkPace: return "Wheelchair Walk"
+        case .crossCountrySkiing: return "XC Ski"
+        default:
+            return "Workout"
+        }
+    }
+}
+
+#if DEBUG
+extension WorkoutRouteStore {
+    static var previewStore: WorkoutRouteStore {
+        let store = WorkoutRouteStore()
+        store.routes = WorkoutDataProvider.sampleRoutes
+        store.state = .loaded
+        store.hasAttemptedInitialLoad = true
+        return store
+    }
+}
+#endif

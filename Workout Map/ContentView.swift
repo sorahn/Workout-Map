@@ -9,12 +9,31 @@ import SwiftUI
 import MapKit
 
 struct ContentView: View {
-    private let routes = WorkoutDataProvider.sampleRoutes
+    @StateObject private var workoutStore: WorkoutRouteStore
     @State private var cameraPosition: MapCameraPosition = .automatic
 
+    init(store: WorkoutRouteStore = WorkoutRouteStore()) {
+        _workoutStore = StateObject(wrappedValue: store)
+    }
+
     var body: some View {
+        ZStack(alignment: .center) {
+            mapLayer
+            stateOverlay
+        }
+        .task {
+            await workoutStore.refreshWorkoutsIfNeeded()
+        }
+        .onChange(of: workoutStore.routes) { newRoutes in
+            guard !newRoutes.isEmpty,
+                  let region = newRoutes.combinedRegion() else { return }
+            cameraPosition = .region(region)
+        }
+    }
+
+    private var mapLayer: some View {
         Map(position: $cameraPosition, interactionModes: .all) {
-            ForEach(routes) { route in
+            ForEach(workoutStore.routes) { route in
                 MapPolyline(coordinates: route.coordinates)
                     .stroke(
                         route.color.gradient.opacity(0.85),
@@ -25,17 +44,50 @@ struct ContentView: View {
         .ignoresSafeArea()
         .mapStyle(.standard(elevation: .realistic))
         .overlay(alignment: .topLeading) {
-            RouteLegendView(routes: routes)
-                .padding()
+            if !workoutStore.routes.isEmpty {
+                RouteLegendView(routes: workoutStore.routes)
+                    .padding()
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             MapControlsPanel()
                 .padding()
         }
-        .task {
-            guard case .automatic = cameraPosition,
-                  let region = routes.combinedRegion() else { return }
-            cameraPosition = .region(region)
+    }
+
+    @ViewBuilder
+    private var stateOverlay: some View {
+        switch workoutStore.state {
+        case .requestingAccess:
+            StatusOverlayView(
+                title: "Allow Health Access",
+                message: "Approve the HealthKit prompt so we can pull your workouts.",
+                showProgress: true
+            )
+        case .loading:
+            StatusOverlayView(
+                title: "Loading workouts...",
+                message: "Pulling your recent Health workouts and routes.",
+                showProgress: true
+            )
+        case .empty:
+            StatusOverlayView(
+                title: "No workout routes yet",
+                message: "Record an outdoor workout with route tracking (Run, Walk, Ride) and refresh.",
+                actionTitle: "Refresh"
+            ) {
+                Task { await workoutStore.refreshWorkouts() }
+            }
+        case .error(let message):
+            StatusOverlayView(
+                title: "We couldn't load workouts",
+                message: message,
+                actionTitle: "Try Again"
+            ) {
+                Task { await workoutStore.refreshWorkouts() }
+            }
+        default:
+            EmptyView()
         }
     }
 }
@@ -88,6 +140,40 @@ private struct MapControlsPanel: View {
     }
 }
 
+private struct StatusOverlayView: View {
+    let title: String
+    let message: String
+    var showProgress: Bool = false
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if showProgress {
+                ProgressView()
+                    .progressViewStyle(.circular)
+            }
+
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                Text(message)
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding()
+    }
+}
+
 #Preview {
-    ContentView()
+    ContentView(store: .previewStore)
 }
