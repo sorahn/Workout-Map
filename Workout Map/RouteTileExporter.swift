@@ -69,7 +69,7 @@ final class RouteTileExporter {
         guard let context = UIGraphicsGetCurrentContext() else {
             throw ExportError.renderingFailed
         }
-        context.setFillColor(UIColor.systemBackground.cgColor)
+        context.setFillColor(UIColor.white.cgColor)
         context.fill(CGRect(origin: .zero, size: CGSize(width: width, height: height)))
 
         var downloaded = 0
@@ -83,7 +83,7 @@ final class RouteTileExporter {
             do {
                 let image = try await fetchTileImage(tile)
                 autoreleasepool {
-                    image.draw(in: rect, blendMode: .normal, alpha: 0.5)
+                    image.draw(in: rect, blendMode: .normal, alpha: 0.25)
                 }
             } catch {
                 UIColor.systemGray6.setFill()
