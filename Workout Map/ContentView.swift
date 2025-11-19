@@ -14,7 +14,11 @@ struct ContentView: View {
     @StateObject private var workoutStore: WorkoutRouteStore
     @State private var cameraPosition: MapCameraPosition = .automatic
 
-    init(store: WorkoutRouteStore = WorkoutRouteStore()) {
+    init() {
+        _workoutStore = StateObject(wrappedValue: WorkoutRouteStore())
+    }
+
+    init(store: WorkoutRouteStore) {
         _workoutStore = StateObject(wrappedValue: store)
     }
 
