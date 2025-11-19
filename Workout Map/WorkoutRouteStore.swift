@@ -66,9 +66,11 @@ final class WorkoutRouteStore: ObservableObject {
     private let maxWorkoutsToFetch = HKObjectQueryNoLimit
 
     init() {
-        if UserDefaults.standard.bool(forKey: Self.clearCacheDefaultsKey) {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: Self.clearCacheDefaultsKey) {
             persistence.clearAll(synchronous: true)
-            UserDefaults.standard.set(false, forKey: Self.clearCacheDefaultsKey)
+            defaults.set(false, forKey: Self.clearCacheDefaultsKey)
+            defaults.synchronize()
         }
 
         let cachedRoutes = persistence.loadRoutes()
@@ -173,6 +175,8 @@ final class WorkoutRouteStore: ObservableObject {
             self.routes = []
             self.knownWorkoutIDs.removeAll()
             self.state = .empty
+            UserDefaults.standard.set(false, forKey: Self.clearCacheDefaultsKey)
+            UserDefaults.standard.synchronize()
         }
     }
 
