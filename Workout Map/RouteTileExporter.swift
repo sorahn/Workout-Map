@@ -100,13 +100,13 @@ final class RouteTileExporter {
                 }
             }
 
-            let strokeColor = UIColor(red: 1.0, green: 0.39, blue: 0.39, alpha: 0.9)
+            let strokeColor = UIColor(red: 0.86, green: 0.18, blue: 0.24, alpha: 0.95)
             strokeColor.setStroke()
 
             for route in routes {
                 guard route.coordinates.count > 1 else { continue }
                 let path = UIBezierPath()
-                path.lineWidth = 2
+                path.lineWidth = 1
                 path.lineJoinStyle = .round
                 path.lineCapStyle = .round
 
