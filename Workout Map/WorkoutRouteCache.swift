@@ -134,14 +134,15 @@ final class WorkoutRouteCache {
         let encoder = self.encoder
         let fileURL = self.fileURL
 
-        Task.detached(priority: .utility) {
-            let document = WorkoutRouteCacheDocument(
-                routes: dtos,
-                cameraRegion: storedRegion
-            )
+        let document = WorkoutRouteCacheDocument(routes: dtos, cameraRegion: storedRegion)
 
+        guard let data = try? encoder.encode(document) else {
+            completion?()
+            return
+        }
+
+        Task.detached(priority: .utility) {
             do {
-                let data = try encoder.encode(document)
                 try data.write(to: fileURL, options: [.atomic])
             } catch {
                 // Silently ignore cache write errors.
