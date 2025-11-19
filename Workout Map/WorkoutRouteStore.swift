@@ -59,6 +59,7 @@ final class WorkoutRouteStore: ObservableObject {
         .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
     ]
     private var cachedCameraRegion: MKCoordinateRegion?
+    private var pendingCameraSaveTask: Task<Void, Never>?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
 
@@ -201,7 +202,13 @@ final class WorkoutRouteStore: ObservableObject {
     }
     func persistCameraRegion(_ region: MKCoordinateRegion) {
         cachedCameraRegion = region
-        cache.save(routes: routes, cameraRegion: region)
+        pendingCameraSaveTask?.cancel()
+        let currentRoutes = routes
+        pendingCameraSaveTask = Task { [cache] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            cache.save(routes: currentRoutes, cameraRegion: region)
+        }
     }
 
     private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {

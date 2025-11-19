@@ -113,16 +113,22 @@ final class WorkoutRouteCache {
         }
     }
 
-    func save(routes: [WorkoutRoute], cameraRegion: MKCoordinateRegion?) {
-        do {
-            let document = WorkoutRouteCacheDocument(
-                routes: routes.map { WorkoutRouteCacheDTO(route: $0) },
-                cameraRegion: cameraRegion.map { CameraRegion(region: $0) }
-            )
-            let data = try encoder.encode(document)
-            try data.write(to: fileURL, options: [.atomic])
-        } catch {
-            // Silently ignore cache write errors.
+    func save(routes: [WorkoutRoute], cameraRegion: MKCoordinateRegion?, completion: (() -> Void)? = nil) {
+        DispatchQueue.global(qos: .utility).async { [encoder, fileURL] in
+            do {
+                let document = WorkoutRouteCacheDocument(
+                    routes: routes.map { WorkoutRouteCacheDTO(route: $0) },
+                    cameraRegion: cameraRegion.map { CameraRegion(region: $0) }
+                )
+                let data = try encoder.encode(document)
+                try data.write(to: fileURL, options: [.atomic])
+            } catch {
+                // Silently ignore cache write errors.
+            }
+
+            if let completion {
+                DispatchQueue.main.async(execute: completion)
+            }
         }
     }
 }
