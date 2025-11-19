@@ -56,10 +56,6 @@ struct ContentView: View {
                     .padding(.top)
             }
         }
-        .overlay(alignment: .bottomTrailing) {
-            MapControlsPanel()
-                .padding()
-        }
     }
 
     @ViewBuilder
@@ -92,18 +88,6 @@ struct ContentView: View {
         default:
             EmptyView()
         }
-    }
-}
-
-private struct MapControlsPanel: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            MapUserLocationButton()
-            MapCompass()
-            MapPitchToggle()
-        }
-        .buttonBorderShape(.circle)
-        .controlSize(.large)
     }
 }
 
