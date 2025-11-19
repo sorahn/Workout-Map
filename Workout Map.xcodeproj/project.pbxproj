@@ -6,13 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		FB1C7F102ECD857200B2AD80 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = FB1C7F0F2ECD857200B2AD80 /* Settings.bundle */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		FB1C7ED62ECD857000B2AD80 /* Workout Map.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Workout Map.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		FB1C7F0F2ECD857200B2AD80 /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = wrapper.settings-bundle; path = Settings.bundle; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -20,9 +15,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Workout Map";
 			sourceTree = "<group>";
-			children = (
-				FB1C7F0F2ECD857200B2AD80 /* Settings.bundle */,
-			);
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -117,7 +109,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FB1C7F102ECD857200B2AD80 /* Settings.bundle in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

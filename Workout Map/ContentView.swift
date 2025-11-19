@@ -8,12 +8,18 @@
 import Combine
 import SwiftUI
 import MapKit
+import UIKit
 
 @MainActor
 struct ContentView: View {
     @StateObject private var workoutStore: WorkoutRouteStore
     @StateObject private var mapViewStore: MapViewStore
-    @State private var selectedVisibleCount = 0
+    @State private var selectedRoutes: [WorkoutRoute] = []
+    @State private var isExporting = false
+    @State private var exportImage: UIImage?
+    @State private var showShareSheet = false
+    @State private var exportErrorMessage: String?
+    private let exporter = RouteTileExporter()
 
     init() {
         let store = WorkoutRouteStore()
@@ -30,6 +36,22 @@ var body: some View {
     ZStack(alignment: .center) {
         mapLayer
         stateOverlay
+    }
+    .sheet(isPresented: $showShareSheet) {
+        if let exportImage {
+            ShareSheet(items: [exportImage])
+        }
+    }
+    .alert("Export Failed", isPresented: Binding(get: { exportErrorMessage != nil }, set: { newValue in
+        if !newValue {
+            exportErrorMessage = nil
+        }
+    })) {
+        Button("OK", role: .cancel) {
+            exportErrorMessage = nil
+        }
+    } message: {
+        Text(exportErrorMessage ?? "")
     }
     .task {
         await workoutStore.refreshWorkoutsIfNeeded()
@@ -66,8 +88,8 @@ var body: some View {
             .padding(.bottom, 0)
         }
         .overlay(alignment: .topLeading) {
-            if selectedVisibleCount > 0 {
-                Label("\(selectedVisibleCount) selected", systemImage: "checkmark.circle.fill")
+            if selectionCount > 0 {
+                Label("\(selectionCount) selected", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
@@ -77,8 +99,8 @@ var body: some View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            if selectedVisibleCount > 0 {
-                Button(action: { selectedVisibleCount = 0 }) {
+            if selectionCount > 0 {
+                Button(action: clearSelection) {
                     Label("Clear Selection", systemImage: "xmark.circle")
                         .font(.subheadline.weight(.semibold))
                         .padding(.vertical, 8)
@@ -90,13 +112,21 @@ var body: some View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            if selectedVisibleCount > 0 {
-                Button(action: {}) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.title2)
-                        .frame(width: 48, height: 48)
-                        .background(.regularMaterial, in: Circle())
+            if selectionCount > 0 {
+                Button(action: exportSelection) {
+                    if isExporting {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .frame(width: 48, height: 48)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.title2)
+                            .frame(width: 48, height: 48)
+                    }
                 }
+                .disabled(isExporting)
+                .frame(width: 48, height: 48)
+                .background(.regularMaterial, in: Circle())
                 .padding(.trailing, 16)
                 .padding(.bottom, 0)
             }
@@ -142,13 +172,40 @@ var body: some View {
 }
 
 extension ContentView {
+    private var selectionCount: Int {
+        selectedRoutes.count
+    }
+
     private func selectVisibleWorkouts() {
         guard let region = mapViewStore.currentVisibleRegion else {
-            selectedVisibleCount = 0
+            selectedRoutes = []
             return
         }
-        let count = workoutStore.routes.filter { $0.intersects(region: region) }.count
-        selectedVisibleCount = count
+        selectedRoutes = workoutStore.routes.filter { $0.intersects(region: region) }
+    }
+
+    private func clearSelection() {
+        selectedRoutes.removeAll()
+    }
+
+    private func exportSelection() {
+        guard !selectedRoutes.isEmpty else { return }
+        isExporting = true
+        Task {
+            do {
+                let image = try await exporter.render(routes: selectedRoutes)
+                await MainActor.run {
+                    self.exportImage = image
+                    self.isExporting = false
+                    self.showShareSheet = true
+                }
+            } catch {
+                await MainActor.run {
+                    self.isExporting = false
+                    self.exportErrorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }
 
@@ -214,6 +271,16 @@ private struct LoadingStatusBar: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
     }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

@@ -251,4 +251,51 @@ extension WorkoutRoute {
 
         return latOverlap && lonOverlap
     }
+
+    func boundingBox() -> RouteBoundingBox? {
+        guard let first = coordinates.first else { return nil }
+
+        var minLatitude = first.latitude
+        var maxLatitude = first.latitude
+        var minLongitude = first.longitude
+        var maxLongitude = first.longitude
+
+        for coordinate in coordinates {
+            minLatitude = min(minLatitude, coordinate.latitude)
+            maxLatitude = max(maxLatitude, coordinate.latitude)
+            minLongitude = min(minLongitude, coordinate.longitude)
+            maxLongitude = max(maxLongitude, coordinate.longitude)
+        }
+
+        return RouteBoundingBox(minLatitude: minLatitude,
+                                 maxLatitude: maxLatitude,
+                                 minLongitude: minLongitude,
+                                 maxLongitude: maxLongitude)
+    }
+}
+
+struct RouteBoundingBox {
+    var minLatitude: Double
+    var maxLatitude: Double
+    var minLongitude: Double
+    var maxLongitude: Double
+}
+
+extension Array where Element == WorkoutRoute {
+    func combinedBoundingBox() -> RouteBoundingBox? {
+        var overall: RouteBoundingBox?
+        for route in self {
+            guard let box = route.boundingBox() else { continue }
+            if var existing = overall {
+                existing.minLatitude = min(existing.minLatitude, box.minLatitude)
+                existing.maxLatitude = max(existing.maxLatitude, box.maxLatitude)
+                existing.minLongitude = min(existing.minLongitude, box.minLongitude)
+                existing.maxLongitude = max(existing.maxLongitude, box.maxLongitude)
+                overall = existing
+            } else {
+                overall = box
+            }
+        }
+        return overall
+    }
 }
