@@ -122,8 +122,7 @@ final class WorkoutRouteCache {
     }
 
     func save(routes: [WorkoutRoute], cameraRegion: MKCoordinateRegion?, completion: (() -> Void)? = nil) {
-        let fileURL = self.fileURL
-        let encoder = self.encoder
+        let dtos = routes.map { WorkoutRouteCacheDTO(route: $0) }
         let storedRegion = cameraRegion.map {
             CameraRegion(
                 centerLatitude: $0.center.latitude,
@@ -132,12 +131,15 @@ final class WorkoutRouteCache {
                 spanLongitudeDelta: $0.span.longitudeDelta
             )
         }
+        let encoder = self.encoder
+        let fileURL = self.fileURL
 
         Task.detached(priority: .utility) {
             let document = WorkoutRouteCacheDocument(
-                routes: routes.map { WorkoutRouteCacheDTO(route: $0) },
+                routes: dtos,
                 cameraRegion: storedRegion
             )
+
             do {
                 let data = try encoder.encode(document)
                 try data.write(to: fileURL, options: [.atomic])

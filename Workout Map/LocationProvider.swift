@@ -13,36 +13,29 @@ final class LocationProvider: NSObject, ObservableObject {
     @Published private(set) var currentLocation: CLLocation?
 
     private let manager = CLLocationManager()
-    private var hasRequestedAuthorization = false
 
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         manager.distanceFilter = 50
-        requestAuthorizationIfNeeded()
-    }
-
-    private func requestAuthorizationIfNeeded() {
-        guard !hasRequestedAuthorization else { return }
-        hasRequestedAuthorization = true
-        manager.requestWhenInUseAuthorization()
     }
 }
 
 extension LocationProvider: CLLocationManagerDelegate {
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
-            if CLLocationManager.locationServicesEnabled() {
-                manager.startUpdatingLocation()
-            }
+            guard CLLocationManager.locationServicesEnabled() else { return }
+            manager.startUpdatingLocation()
         case .denied, .restricted:
             manager.stopUpdatingLocation()
             DispatchQueue.main.async {
                 self.currentLocation = nil
             }
-        default:
+        @unknown default:
             break
         }
     }
@@ -55,7 +48,6 @@ extension LocationProvider: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Ignore transient errors but clear last location so the UI can fall back gracefully.
         DispatchQueue.main.async {
             self.currentLocation = nil
         }
