@@ -171,6 +171,7 @@ final class WorkoutRouteStore: ObservableObject {
             let mergedRoutes = (newRoutes + existingRoutes).sorted { $0.startDate > $1.startDate }
             self.routes = mergedRoutes
             state = .loaded
+            NotificationCenter.default.post(name: .newRoutesLoaded, object: newRoutes.isEmpty ? nil : newRoutes)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -352,5 +353,9 @@ extension WorkoutRouteStore {
         store.hasAttemptedInitialLoad = true
         return store
     }
+}
+
+extension Notification.Name {
+    static let newRoutesLoaded = Notification.Name("com.workoutmap.newRoutesLoaded")
 }
 #endif

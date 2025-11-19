@@ -15,16 +15,21 @@ final class MapViewStore: ObservableObject {
     @Published var currentVisibleRegion: MKCoordinateRegion?
 
     private var hasCenteredOnLatestRoute = false
-
+    private let cameraStore = CameraRegionStore()
     private let workoutStore: WorkoutRouteStore
     private var latestWorkoutState: WorkoutRouteStore.State = .idle
     private var cancellables = Set<AnyCancellable>()
+    private var newRoutesObserver: AnyCancellable?
 
     init(workoutStore: WorkoutRouteStore) {
         self.workoutStore = workoutStore
 
-        cameraPosition = .automatic
-        hasCenteredOnLatestRoute = false
+        if let cachedRegion = cameraStore.load() {
+            cameraPosition = .region(cachedRegion)
+            currentVisibleRegion = cachedRegion
+        } else {
+            cameraPosition = .automatic
+        }
 
         workoutStore.$routes
             .receive(on: RunLoop.main)
@@ -40,10 +45,27 @@ final class MapViewStore: ObservableObject {
             }
             .store(in: &cancellables)
 
-        if !workoutStore.routes.isEmpty {
-            let sorted = workoutStore.routes.sorted { $0.startDate > $1.startDate }
-            handleRoutesUpdate(sorted)
+        if let cachedRegion = cameraStore.load() {
+            cameraPosition = .region(cachedRegion)
+            currentVisibleRegion = cachedRegion
+            hasCenteredOnLatestRoute = true
+        } else if let latestRoute = workoutStore.routes.sorted(by: { $0.startDate > $1.startDate }).first,
+                  let region = MapViewStore.regionForRoute(latestRoute) {
+            cameraPosition = .region(region)
+            currentVisibleRegion = region
+            hasCenteredOnLatestRoute = true
+        } else {
+            cameraPosition = .automatic
+            hasCenteredOnLatestRoute = false
         }
+
+        newRoutesObserver = NotificationCenter.default.publisher(for: .newRoutesLoaded)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                if let newRoutes = notification.object as? [WorkoutRoute], !newRoutes.isEmpty {
+                    self.hasCenteredOnLatestRoute = false
+                }
+            }
     }
 
     private func handleRoutesUpdate(_ routes: [WorkoutRoute]) {
@@ -78,10 +100,14 @@ final class MapViewStore: ObservableObject {
             cameraPosition = .region(region)
         }
         currentVisibleRegion = region
+        cameraStore.save(region: region)
     }
 
     func updateVisibleRegion(_ region: MKCoordinateRegion?) {
         currentVisibleRegion = region
+        if let region {
+            cameraStore.save(region: region)
+        }
     }
 }
 
