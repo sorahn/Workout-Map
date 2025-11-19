@@ -60,6 +60,8 @@ final class WorkoutRouteStore: ObservableObject {
     ]
     private var cachedCameraRegion: MKCoordinateRegion?
     private var pendingCameraSaveTask: Task<Void, Never>?
+    private var knownWorkoutIDs: Set<UUID> = []
+    private var latestSyncedStartDate: Date?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
 
@@ -70,6 +72,8 @@ final class WorkoutRouteStore: ObservableObject {
         let payload = cache.load()
         let cachedRoutes = payload.routes
         self.cachedCameraRegion = payload.cameraRegion
+        self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
+        self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
         if !cachedRoutes.isEmpty {
             self.routes = cachedRoutes
             self.state = .loaded
@@ -113,34 +117,51 @@ final class WorkoutRouteStore: ObservableObject {
         loadingProgress = nil
 
         do {
-            let workouts = try await fetchAllWorkouts(limit: maxWorkoutsToFetch)
-            if !workouts.isEmpty {
-                loadingProgress = LoadingProgress(total: workouts.count, loaded: 0)
+            let workouts = try await fetchWorkouts(startingFrom: latestSyncedStartDate)
+
+            guard !workouts.isEmpty else {
+                loadingProgress = nil
+                state = routes.isEmpty ? .empty : .loaded
+                return
             }
 
-            var refreshedRoutes: [WorkoutRoute] = []
+            loadingProgress = LoadingProgress(total: workouts.count, loaded: 0)
+
+            let existingRoutes = routes
+            var newRoutes: [WorkoutRoute] = []
 
             for (index, workout) in workouts.enumerated() {
-                if let route = try await buildRoute(
-                    for: workout,
-                    color: colorForRoute(at: refreshedRoutes.count)
-                ) {
-                    refreshedRoutes.append(route)
-                    self.routes = refreshedRoutes
-                } else if refreshedRoutes.isEmpty {
-                    self.routes = []
+                defer {
+                    loadingProgress = LoadingProgress(
+                        total: workouts.count,
+                        loaded: index + 1
+                    )
                 }
 
-                loadingProgress = LoadingProgress(
-                    total: workouts.count,
-                    loaded: index + 1
-                )
+                guard !knownWorkoutIDs.contains(workout.uuid) else { continue }
+
+                if let route = try await buildRoute(
+                    for: workout,
+                    color: colorForRoute(at: existingRoutes.count + newRoutes.count)
+                ) {
+                    newRoutes.append(route)
+                    knownWorkoutIDs.insert(workout.uuid)
+                    latestSyncedStartDate = max(latestSyncedStartDate ?? workout.startDate, workout.startDate)
+                    self.routes = newRoutes + existingRoutes
+                }
             }
 
             loadingProgress = nil
-            self.routes = refreshedRoutes
-            state = refreshedRoutes.isEmpty ? .empty : .loaded
-            cache.save(routes: refreshedRoutes, cameraRegion: cachedCameraRegion)
+
+            guard !newRoutes.isEmpty else {
+                state = routes.isEmpty ? .empty : .loaded
+                return
+            }
+
+            let mergedRoutes = newRoutes + existingRoutes
+            self.routes = mergedRoutes
+            state = .loaded
+            cache.save(routes: mergedRoutes, cameraRegion: cachedCameraRegion)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -150,14 +171,20 @@ final class WorkoutRouteStore: ObservableObject {
         }
     }
 
-    private func fetchAllWorkouts(limit: Int) async throws -> [HKWorkout] {
+    private func fetchWorkouts(startingFrom date: Date?) async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let predicate: NSPredicate?
+            if let date {
+                predicate = HKQuery.predicateForSamples(withStart: date, end: nil, options: .strictStartDate)
+            } else {
+                predicate = nil
+            }
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
-                predicate: nil,
-                limit: limit,
+                predicate: predicate,
+                limit: maxWorkoutsToFetch,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, error in
                 if let error {
@@ -194,8 +221,10 @@ final class WorkoutRouteStore: ObservableObject {
         let kilometers = meters / 1000
 
         return WorkoutRoute(
+            workoutIdentifier: workout.uuid,
             name: workout.workoutActivityType.displayName,
             distanceInKilometers: kilometers,
+            startDate: workout.startDate,
             coordinates: allCoordinates,
             color: color
         )

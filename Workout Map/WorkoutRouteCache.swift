@@ -24,15 +24,19 @@ struct WorkoutRouteCacheDTO: Codable {
     }
 
     let id: UUID
+    let workoutIdentifier: UUID?
     let name: String
     let distanceInKilometers: Double
+    let startDate: Date?
     let coordinates: [Coordinate]
     let color: WorkoutRoute.RouteColor
 
     init(route: WorkoutRoute) {
         self.id = route.id
+        self.workoutIdentifier = route.workoutIdentifier
         self.name = route.name
         self.distanceInKilometers = route.distanceInKilometers
+        self.startDate = route.startDate
         self.coordinates = route.coordinates.map(Coordinate.init)
         self.color = route.routeColor
     }
@@ -40,8 +44,10 @@ struct WorkoutRouteCacheDTO: Codable {
     func makeRoute() -> WorkoutRoute {
         WorkoutRoute(
             id: id,
+            workoutIdentifier: workoutIdentifier,
             name: name,
             distanceInKilometers: distanceInKilometers,
+            startDate: startDate ?? Date(),
             coordinates: coordinates.map(\.clCoordinate),
             color: color
         )
@@ -98,6 +104,7 @@ final class WorkoutRouteCache {
         }
 
         if let document = try? decoder.decode(WorkoutRouteCacheDocument.self, from: data) {
+            let routes = document.routes.map { $0.makeRoute() }
             let routes = document.routes.map { $0.makeRoute() }
             return WorkoutRouteCachePayload(
                 routes: routes,

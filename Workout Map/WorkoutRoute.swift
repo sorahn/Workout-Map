@@ -12,21 +12,27 @@ import SwiftUI
 /// Simple model that represents a workout route loaded from HealthKit or local data.
 struct WorkoutRoute: Identifiable {
     let id: UUID
+    let workoutIdentifier: UUID?
     let name: String
     let distanceInKilometers: Double
+    let startDate: Date
     let coordinates: [CLLocationCoordinate2D]
     let routeColor: RouteColor
 
     init(
         id: UUID = UUID(),
+        workoutIdentifier: UUID? = nil,
         name: String,
         distanceInKilometers: Double,
+        startDate: Date = Date(),
         coordinates: [CLLocationCoordinate2D],
         color: RouteColor
     ) {
         self.id = id
+        self.workoutIdentifier = workoutIdentifier
         self.name = name
         self.distanceInKilometers = distanceInKilometers
+        self.startDate = startDate
         self.coordinates = coordinates
         self.routeColor = color
     }
@@ -64,8 +70,10 @@ enum WorkoutDataProvider {
     /// In a real implementation you would fetch from HealthKit. For now we provide sample data.
     static let sampleRoutes: [WorkoutRoute] = [
         WorkoutRoute(
+            workoutIdentifier: UUID(),
             name: "Neighborhood Tempo",
             distanceInKilometers: 5.4,
+            startDate: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
             coordinates: [
                 CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.0090),
                 CLLocationCoordinate2D(latitude: 37.3300, longitude: -122.0250),
@@ -77,8 +85,10 @@ enum WorkoutDataProvider {
             color: .sunrise
         ),
         WorkoutRoute(
+            workoutIdentifier: UUID(),
             name: "Trail Climb",
             distanceInKilometers: 7.8,
+            startDate: Calendar.current.date(byAdding: .day, value: -6, to: Date()) ?? Date(),
             coordinates: [
                 CLLocationCoordinate2D(latitude: 37.3700, longitude: -122.0860),
                 CLLocationCoordinate2D(latitude: 37.3644, longitude: -122.0770),
@@ -91,8 +101,10 @@ enum WorkoutDataProvider {
             color: .seafoam
         ),
         WorkoutRoute(
+            workoutIdentifier: UUID(),
             name: "Recovery Spin",
             distanceInKilometers: 12.3,
+            startDate: Calendar.current.date(byAdding: .day, value: -10, to: Date()) ?? Date(),
             coordinates: [
                 CLLocationCoordinate2D(latitude: 37.7926, longitude: -122.4040),
                 CLLocationCoordinate2D(latitude: 37.7869, longitude: -122.4194),
