@@ -48,6 +48,40 @@ struct WorkoutRouteCacheDTO: Codable {
     }
 }
 
+private struct WorkoutRouteCacheDocument: Codable {
+    var routes: [WorkoutRouteCacheDTO]
+    var cameraRegion: CameraRegion?
+}
+
+private struct CameraRegion: Codable {
+    let centerLatitude: Double
+    let centerLongitude: Double
+    let spanLatitudeDelta: Double
+    let spanLongitudeDelta: Double
+
+    init(region: MKCoordinateRegion) {
+        centerLatitude = region.center.latitude
+        centerLongitude = region.center.longitude
+        spanLatitudeDelta = region.span.latitudeDelta
+        spanLongitudeDelta = region.span.longitudeDelta
+    }
+
+    var region: MKCoordinateRegion {
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: centerLatitude, longitude: centerLongitude),
+            span: MKCoordinateSpan(
+                latitudeDelta: spanLatitudeDelta,
+                longitudeDelta: spanLongitudeDelta
+            )
+        )
+    }
+}
+
+struct WorkoutRouteCachePayload {
+    let routes: [WorkoutRoute]
+    let cameraRegion: MKCoordinateRegion?
+}
+
 final class WorkoutRouteCache {
     private let fileURL: URL
     private let encoder = JSONEncoder()
@@ -58,23 +92,34 @@ final class WorkoutRouteCache {
         self.fileURL = cachesDirectory.appendingPathComponent("workout-routes-cache.json")
     }
 
-    func loadRoutes() -> [WorkoutRoute] {
+    func load() -> WorkoutRouteCachePayload {
         guard let data = try? Data(contentsOf: fileURL) else {
-            return []
+            return WorkoutRouteCachePayload(routes: [], cameraRegion: nil)
         }
 
-        do {
-            let dtos = try decoder.decode([WorkoutRouteCacheDTO].self, from: data)
-            return dtos.map { $0.makeRoute() }
-        } catch {
-            return []
+        if let document = try? decoder.decode(WorkoutRouteCacheDocument.self, from: data) {
+            let routes = document.routes.map { $0.makeRoute() }
+            return WorkoutRouteCachePayload(
+                routes: routes,
+                cameraRegion: document.cameraRegion?.region
+            )
+        } else if let legacyRoutes = try? decoder.decode([WorkoutRouteCacheDTO].self, from: data) {
+            return WorkoutRouteCachePayload(
+                routes: legacyRoutes.map { $0.makeRoute() },
+                cameraRegion: nil
+            )
+        } else {
+            return WorkoutRouteCachePayload(routes: [], cameraRegion: nil)
         }
     }
 
-    func saveRoutes(_ routes: [WorkoutRoute]) {
+    func save(routes: [WorkoutRoute], cameraRegion: MKCoordinateRegion?) {
         do {
-            let dtos = routes.map { WorkoutRouteCacheDTO(route: $0) }
-            let data = try encoder.encode(dtos)
+            let document = WorkoutRouteCacheDocument(
+                routes: routes.map { WorkoutRouteCacheDTO(route: $0) },
+                cameraRegion: cameraRegion.map { CameraRegion(region: $0) }
+            )
+            let data = try encoder.encode(document)
             try data.write(to: fileURL, options: [.atomic])
         } catch {
             // Silently ignore cache write errors.

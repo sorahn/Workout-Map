@@ -55,6 +55,7 @@ final class WorkoutRouteStore: ObservableObject {
     private let workoutType = HKObjectType.workoutType()
     private let routeType = HKSeriesType.workoutRoute()
     private let cache: WorkoutRouteCache
+    private var cachedCameraRegion: MKCoordinateRegion?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
 
@@ -62,11 +63,17 @@ final class WorkoutRouteStore: ObservableObject {
 
     init(cache: WorkoutRouteCache = WorkoutRouteCache()) {
         self.cache = cache
-        let cachedRoutes = cache.loadRoutes()
+        let payload = cache.load()
+        let cachedRoutes = payload.routes
+        self.cachedCameraRegion = payload.cameraRegion
         if !cachedRoutes.isEmpty {
             self.routes = cachedRoutes
             self.state = .loaded
         }
+    }
+
+    var initialCameraRegion: MKCoordinateRegion? {
+        cachedCameraRegion
     }
 
     func refreshWorkoutsIfNeeded() async {
@@ -126,7 +133,7 @@ final class WorkoutRouteStore: ObservableObject {
             loadingProgress = nil
             self.routes = refreshedRoutes
             state = refreshedRoutes.isEmpty ? .empty : .loaded
-            cache.saveRoutes(refreshedRoutes)
+            cache.save(routes: refreshedRoutes, cameraRegion: cachedCameraRegion)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -180,6 +187,11 @@ final class WorkoutRouteStore: ObservableObject {
             coordinates: allCoordinates,
             color: color(for: workout.workoutActivityType)
         )
+    }
+
+    func persistCameraRegion(_ region: MKCoordinateRegion) {
+        cachedCameraRegion = region
+        cache.save(routes: routes, cameraRegion: region)
     }
 
     private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {

@@ -12,14 +12,33 @@ import MapKit
 @MainActor
 struct ContentView: View {
     @StateObject private var workoutStore: WorkoutRouteStore
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    @StateObject private var locationProvider = LocationProvider()
+    @State private var cameraPosition: MapCameraPosition
+    @State private var shouldFitRoutesOnUpdate: Bool
+    @State private var hasManuallyAdjustedCamera = false
+    @State private var hasCenteredOnUser = false
 
     init() {
-        _workoutStore = StateObject(wrappedValue: WorkoutRouteStore())
+        let store = WorkoutRouteStore()
+        _workoutStore = StateObject(wrappedValue: store)
+        if let cachedRegion = store.initialCameraRegion {
+            _cameraPosition = State(initialValue: .region(cachedRegion))
+            _shouldFitRoutesOnUpdate = State(initialValue: false)
+        } else {
+            _cameraPosition = State(initialValue: .automatic)
+            _shouldFitRoutesOnUpdate = State(initialValue: true)
+        }
     }
 
     init(store: WorkoutRouteStore) {
         _workoutStore = StateObject(wrappedValue: store)
+        if let cachedRegion = store.initialCameraRegion {
+            _cameraPosition = State(initialValue: .region(cachedRegion))
+            _shouldFitRoutesOnUpdate = State(initialValue: false)
+        } else {
+            _cameraPosition = State(initialValue: .automatic)
+            _shouldFitRoutesOnUpdate = State(initialValue: true)
+        }
     }
 
     var body: some View {
@@ -32,8 +51,20 @@ struct ContentView: View {
         }
         .onReceive(workoutStore.$routes) { newRoutes in
             guard !newRoutes.isEmpty,
+                  shouldFitRoutesOnUpdate,
+                  !hasManuallyAdjustedCamera,
                   let region = newRoutes.combinedRegion() else { return }
             cameraPosition = .region(region)
+            workoutStore.persistCameraRegion(region)
+            shouldFitRoutesOnUpdate = false
+        }
+        .onReceive(workoutStore.$state) { state in
+            if case .loaded = state {
+                attemptAutoCenterOnUser()
+            }
+        }
+        .onReceive(locationProvider.$currentLocation) { _ in
+            attemptAutoCenterOnUser()
         }
     }
 
@@ -54,6 +85,13 @@ struct ContentView: View {
                 LoadingStatusBar(progress: progress)
                     .padding(.horizontal)
                     .padding(.top)
+            }
+        }
+        .onMapCameraChange(frequency: .onEnd) { context in
+            guard let region = context.region else { return }
+            workoutStore.persistCameraRegion(region)
+            if context.reason == .userInteraction {
+                hasManuallyAdjustedCamera = true
             }
         }
     }
@@ -152,6 +190,23 @@ private struct LoadingStatusBar: View {
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+    }
+}
+
+extension ContentView {
+    private func attemptAutoCenterOnUser() {
+        guard workoutStore.state == .loaded,
+              !hasManuallyAdjustedCamera,
+              !hasCenteredOnUser,
+              let coordinate = locationProvider.currentLocation?.coordinate else { return }
+
+        hasCenteredOnUser = true
+        let region = MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+        )
+        cameraPosition = .region(region)
+        workoutStore.persistCameraRegion(region)
     }
 }
 
