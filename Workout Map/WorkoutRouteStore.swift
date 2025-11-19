@@ -67,9 +67,10 @@ final class WorkoutRouteStore: ObservableObject {
 
     private let maxWorkoutsToFetch = HKObjectQueryNoLimit
 
-    init(cache: WorkoutRouteCache = WorkoutRouteCache()) {
-        self.cache = cache
-        let payload = cache.load()
+    init(cache: WorkoutRouteCache? = nil) {
+        let cacheInstance = cache ?? WorkoutRouteCache()
+        self.cache = cacheInstance
+        let payload = cacheInstance.load()
         let cachedRoutes = payload.routes
         self.cachedCameraRegion = cameraRegionStore.loadRegion() ?? payload.cameraRegion
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))

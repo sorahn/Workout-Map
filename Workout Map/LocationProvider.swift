@@ -13,16 +13,20 @@ final class LocationProvider: NSObject, ObservableObject {
     @Published private(set) var currentLocation: CLLocation?
 
     private let manager = CLLocationManager()
+    private var hasRequestedAuthorization = false
 
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         manager.distanceFilter = 50
+        requestAuthorizationIfNeeded()
+    }
+
+    private func requestAuthorizationIfNeeded() {
+        guard !hasRequestedAuthorization else { return }
+        hasRequestedAuthorization = true
         manager.requestWhenInUseAuthorization()
-        if CLLocationManager.locationServicesEnabled() {
-            manager.startUpdatingLocation()
-        }
     }
 }
 
@@ -30,7 +34,9 @@ extension LocationProvider: CLLocationManagerDelegate {
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
-            manager.startUpdatingLocation()
+            if CLLocationManager.locationServicesEnabled() {
+                manager.startUpdatingLocation()
+            }
         case .denied, .restricted:
             manager.stopUpdatingLocation()
             DispatchQueue.main.async {

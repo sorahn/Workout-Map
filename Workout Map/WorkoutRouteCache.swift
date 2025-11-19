@@ -16,11 +16,6 @@ struct WorkoutRouteCacheDTO: Codable {
         var clCoordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         }
-
-        init(from coordinate: CLLocationCoordinate2D) {
-            latitude = coordinate.latitude
-            longitude = coordinate.longitude
-        }
     }
 
     let id: UUID
@@ -37,7 +32,7 @@ struct WorkoutRouteCacheDTO: Codable {
         self.name = route.name
         self.distanceInKilometers = route.distanceInKilometers
         self.startDate = route.startDate
-        self.coordinates = route.coordinates.map(Coordinate.init)
+        self.coordinates = route.coordinates.map { Coordinate(latitude: $0.latitude, longitude: $0.longitude) }
         self.color = route.routeColor
     }
 
@@ -64,6 +59,13 @@ private struct CameraRegion: Codable {
     let centerLongitude: Double
     let spanLatitudeDelta: Double
     let spanLongitudeDelta: Double
+
+    init(centerLatitude: Double, centerLongitude: Double, spanLatitudeDelta: Double, spanLongitudeDelta: Double) {
+        self.centerLatitude = centerLatitude
+        self.centerLongitude = centerLongitude
+        self.spanLatitudeDelta = spanLatitudeDelta
+        self.spanLongitudeDelta = spanLongitudeDelta
+    }
 
     init(region: MKCoordinateRegion) {
         centerLatitude = region.center.latitude
@@ -120,12 +122,23 @@ final class WorkoutRouteCache {
     }
 
     func save(routes: [WorkoutRoute], cameraRegion: MKCoordinateRegion?, completion: (() -> Void)? = nil) {
-        DispatchQueue.global(qos: .utility).async { [encoder, fileURL] in
+        let fileURL = self.fileURL
+        let encoder = self.encoder
+        let storedRegion = cameraRegion.map {
+            CameraRegion(
+                centerLatitude: $0.center.latitude,
+                centerLongitude: $0.center.longitude,
+                spanLatitudeDelta: $0.span.latitudeDelta,
+                spanLongitudeDelta: $0.span.longitudeDelta
+            )
+        }
+
+        Task.detached(priority: .utility) {
+            let document = WorkoutRouteCacheDocument(
+                routes: routes.map { WorkoutRouteCacheDTO(route: $0) },
+                cameraRegion: storedRegion
+            )
             do {
-                let document = WorkoutRouteCacheDocument(
-                    routes: routes.map { WorkoutRouteCacheDTO(route: $0) },
-                    cameraRegion: cameraRegion.map { CameraRegion(region: $0) }
-                )
                 let data = try encoder.encode(document)
                 try data.write(to: fileURL, options: [.atomic])
             } catch {
@@ -133,7 +146,9 @@ final class WorkoutRouteCache {
             }
 
             if let completion {
-                DispatchQueue.main.async(execute: completion)
+                await MainActor.run {
+                    completion()
+                }
             }
         }
     }
