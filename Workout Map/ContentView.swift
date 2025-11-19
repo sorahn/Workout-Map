@@ -83,7 +83,7 @@ struct ContentView: View {
             }
         }
         .ignoresSafeArea()
-        .mapStyle(.standard(elevation: .realistic))
+        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
         .overlay(alignment: .top) {
             if let progress = workoutStore.loadingProgress {
                 LoadingStatusBar(progress: progress)
