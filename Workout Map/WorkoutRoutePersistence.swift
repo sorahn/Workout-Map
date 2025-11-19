@@ -172,7 +172,7 @@ private extension WorkoutRoutePersistence {
     }
 
     static func encodeCoordinates(_ coords: [CLLocationCoordinate2D]) -> Data {
-        var encoder = JSONEncoder()
+        let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let dto = coords.map { CoordinateDTO(latitude: $0.latitude, longitude: $0.longitude) }
         return (try? encoder.encode(dto)) ?? Data()
