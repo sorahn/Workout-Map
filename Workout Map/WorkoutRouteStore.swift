@@ -74,7 +74,7 @@ final class WorkoutRouteStore: ObservableObject {
         let cachedRoutes = persistence.loadRoutes()
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
         if !cachedRoutes.isEmpty {
-            self.routes = cachedRoutes
+            self.routes = cachedRoutes.sorted { $0.startDate > $1.startDate }
             self.state = .loaded
         }
     }
@@ -122,7 +122,8 @@ final class WorkoutRouteStore: ObservableObject {
 
             loadingProgress = LoadingProgress(total: workouts.count, loaded: 0)
 
-            let existingRoutes = routes
+            var existingRoutes = routes
+            existingRoutes.sort { $0.startDate > $1.startDate }
             var newRoutes: [WorkoutRoute] = []
 
             for (index, workout) in workouts.enumerated() {
@@ -142,7 +143,8 @@ final class WorkoutRouteStore: ObservableObject {
                     newRoutes.append(route)
                     persistence.upsert(route)
                     knownWorkoutIDs.insert(workout.uuid)
-                    self.routes = newRoutes + existingRoutes
+                    let updated = (newRoutes + existingRoutes).sorted { $0.startDate > $1.startDate }
+                    self.routes = updated
                 }
             }
 
@@ -153,7 +155,7 @@ final class WorkoutRouteStore: ObservableObject {
                 return
             }
 
-            let mergedRoutes = newRoutes + existingRoutes
+            let mergedRoutes = (newRoutes + existingRoutes).sorted { $0.startDate > $1.startDate }
             self.routes = mergedRoutes
             state = .loaded
         } catch let error as HKError where error.code == .errorAuthorizationDenied {

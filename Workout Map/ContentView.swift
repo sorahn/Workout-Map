@@ -26,11 +26,9 @@ struct ContentView: View {
     }
 
 var body: some View {
-    NavigationStack {
-        ZStack(alignment: .center) {
-            mapLayer
-            stateOverlay
-        }
+    ZStack(alignment: .center) {
+        mapLayer
+        stateOverlay
     }
     .task {
         await workoutStore.refreshWorkoutsIfNeeded()

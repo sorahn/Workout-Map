@@ -40,7 +40,8 @@ final class MapViewStore: ObservableObject {
             .store(in: &cancellables)
 
         if !workoutStore.routes.isEmpty {
-            handleRoutesUpdate(workoutStore.routes)
+            let sorted = workoutStore.routes.sorted { $0.startDate > $1.startDate }
+            handleRoutesUpdate(sorted)
         }
     }
 
@@ -62,7 +63,7 @@ final class MapViewStore: ObservableObject {
     private func attemptAutoCenterOnLatestRoute() {
         guard latestWorkoutState == .loaded,
               !hasCenteredOnLatestRoute,
-              let latestRoute = workoutStore.routes.first,
+              let latestRoute = workoutStore.routes.sorted(by: { $0.startDate > $1.startDate }).first,
               let region = MapViewStore.regionForRoute(latestRoute) else { return }
 
         hasCenteredOnLatestRoute = true
