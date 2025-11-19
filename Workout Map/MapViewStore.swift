@@ -15,11 +15,10 @@ final class MapViewStore: ObservableObject {
 
     private(set) var hasManuallyAdjustedCamera = false
     private var shouldFitRoutesOnUpdate: Bool
-    private var hasCenteredOnUser = false
+    private var hasCenteredOnLatestRoute = false
     private var isProgrammaticCameraChange = false
 
     private let workoutStore: WorkoutRouteStore
-    private let locationProvider = LocationProvider()
     private var latestWorkoutState: WorkoutRouteStore.State = .idle
     private var cancellables = Set<AnyCancellable>()
 
@@ -49,13 +48,6 @@ final class MapViewStore: ObservableObject {
                 self?.handleStateChange(state)
             }
             .store(in: &cancellables)
-
-        locationProvider.$currentLocation
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.attemptAutoCenterOnUser()
-            }
-            .store(in: &cancellables)
     }
 
     func handleCameraChange(region: MKCoordinateRegion?) {
@@ -74,7 +66,8 @@ final class MapViewStore: ObservableObject {
         guard !routes.isEmpty,
               shouldFitRoutesOnUpdate,
               !hasManuallyAdjustedCamera,
-              let region = routes.combinedRegion() else { return }
+              let latestRoute = routes.first,
+              let region = region(for: latestRoute) else { return }
 
         setCameraRegion(region)
         shouldFitRoutesOnUpdate = false
@@ -83,21 +76,18 @@ final class MapViewStore: ObservableObject {
     private func handleStateChange(_ state: WorkoutRouteStore.State) {
         latestWorkoutState = state
         if case .loaded = state {
-            attemptAutoCenterOnUser()
+            attemptAutoCenterOnLatestRoute()
         }
     }
 
-    private func attemptAutoCenterOnUser() {
+    private func attemptAutoCenterOnLatestRoute() {
         guard latestWorkoutState == .loaded,
               !hasManuallyAdjustedCamera,
-              !hasCenteredOnUser,
-              let coordinate = locationProvider.currentLocation?.coordinate else { return }
+              !hasCenteredOnLatestRoute,
+              let latestRoute = workoutStore.routes.first,
+              let region = region(for: latestRoute) else { return }
 
-        hasCenteredOnUser = true
-        let region = MKCoordinateRegion(
-            center: coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-        )
+        hasCenteredOnLatestRoute = true
         setCameraRegion(region)
     }
 
@@ -105,5 +95,35 @@ final class MapViewStore: ObservableObject {
         isProgrammaticCameraChange = true
         cameraPosition = .region(region)
         workoutStore.persistCameraRegion(region)
+    }
+
+    private func region(for route: WorkoutRoute, paddingFactor: Double = 0.15) -> MKCoordinateRegion? {
+        let coordinates = route.coordinates
+        guard let first = coordinates.first else { return nil }
+
+        var minLat = first.latitude
+        var maxLat = first.latitude
+        var minLon = first.longitude
+        var maxLon = first.longitude
+
+        for coord in coordinates {
+            minLat = min(minLat, coord.latitude)
+            maxLat = max(maxLat, coord.latitude)
+            minLon = min(minLon, coord.longitude)
+            maxLon = max(maxLon, coord.longitude)
+        }
+
+        let latDelta = max((maxLat - minLat) * (1 + paddingFactor), 0.005)
+        let lonDelta = max((maxLon - minLon) * (1 + paddingFactor), 0.005)
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        return MKCoordinateRegion(
+            center: center,
+            span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta)
+        )
     }
 }
