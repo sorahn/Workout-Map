@@ -106,12 +106,27 @@ final class WorkoutRouteStore: ObservableObject {
             if !workouts.isEmpty {
                 loadingProgress = LoadingProgress(total: workouts.count, loaded: 0)
             }
-            let routes = try await buildRoutes(from: workouts)
-            loadingProgress = nil
 
-            self.routes = routes
-            state = routes.isEmpty ? .empty : .loaded
-            cache.saveRoutes(routes)
+            var refreshedRoutes: [WorkoutRoute] = []
+
+            for (index, workout) in workouts.enumerated() {
+                if let route = try await buildRoute(for: workout) {
+                    refreshedRoutes.append(route)
+                    self.routes = refreshedRoutes
+                } else if refreshedRoutes.isEmpty {
+                    self.routes = []
+                }
+
+                loadingProgress = LoadingProgress(
+                    total: workouts.count,
+                    loaded: index + 1
+                )
+            }
+
+            loadingProgress = nil
+            self.routes = refreshedRoutes
+            state = refreshedRoutes.isEmpty ? .empty : .loaded
+            cache.saveRoutes(refreshedRoutes)
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             loadingProgress = nil
             throw WorkoutRouteStoreError.authorizationDenied
@@ -144,40 +159,27 @@ final class WorkoutRouteStore: ObservableObject {
         }
     }
 
-    private func buildRoutes(from workouts: [HKWorkout]) async throws -> [WorkoutRoute] {
-        var builtRoutes: [WorkoutRoute] = []
+    private func buildRoute(for workout: HKWorkout) async throws -> WorkoutRoute? {
+        let routeSamples = try await fetchRouteSamples(for: workout)
+        guard !routeSamples.isEmpty else { return nil }
 
-        for (index, workout) in workouts.enumerated() {
-            defer {
-                loadingProgress = LoadingProgress(
-                    total: workouts.count,
-                    loaded: index + 1
-                )
-            }
-            let routeSamples = try await fetchRouteSamples(for: workout)
-            guard !routeSamples.isEmpty else { continue }
-
-            var allCoordinates: [CLLocationCoordinate2D] = []
-            for routeSample in routeSamples {
-                let coordinates = try await readCoordinates(for: routeSample)
-                allCoordinates.append(contentsOf: coordinates)
-            }
-
-            guard allCoordinates.count > 1 else { continue }
-
-            let meters = workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? Self.estimateDistance(from: allCoordinates)
-            let kilometers = meters / 1000
-
-            let route = WorkoutRoute(
-                name: workout.workoutActivityType.displayName,
-                distanceInKilometers: kilometers,
-                coordinates: allCoordinates,
-                color: color(for: workout.workoutActivityType)
-            )
-            builtRoutes.append(route)
+        var allCoordinates: [CLLocationCoordinate2D] = []
+        for routeSample in routeSamples {
+            let coordinates = try await readCoordinates(for: routeSample)
+            allCoordinates.append(contentsOf: coordinates)
         }
 
-        return builtRoutes
+        guard allCoordinates.count > 1 else { return nil }
+
+        let meters = workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? Self.estimateDistance(from: allCoordinates)
+        let kilometers = meters / 1000
+
+        return WorkoutRoute(
+            name: workout.workoutActivityType.displayName,
+            distanceInKilometers: kilometers,
+            coordinates: allCoordinates,
+            color: color(for: workout.workoutActivityType)
+        )
     }
 
     private func fetchRouteSamples(for workout: HKWorkout) async throws -> [HKWorkoutRoute] {
