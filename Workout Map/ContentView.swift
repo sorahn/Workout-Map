@@ -24,13 +24,13 @@ struct ContentView: View {
         }
         .ignoresSafeArea()
         .mapStyle(.standard(elevation: .realistic))
-        .overlay(alignment: .top) {
-            HStack(alignment: .top) {
-                RouteLegendView(routes: routes)
-                Spacer(minLength: 0)
-                MapControlsPanel()
-            }
-            .padding()
+        .overlay(alignment: .topLeading) {
+            RouteLegendView(routes: routes)
+                .padding()
+        }
+        .overlay(alignment: .bottomTrailing) {
+            MapControlsPanel()
+                .padding()
         }
         .task {
             guard case .automatic = cameraPosition,
