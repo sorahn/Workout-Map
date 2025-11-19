@@ -17,12 +17,12 @@ final class RouteTileExporter {
         }
     }
 
-    private let zoomLevel = 14
+    private let zoomLevel = 15
     private let tileSize: CGFloat = 256
     private let paddingTiles = 1
     private let tileBaseURL = URL(string: "https://tile.openstreetmap.org")!
 
-    func render(routes: [WorkoutRoute]) async throws -> UIImage {
+    func render(routes: [WorkoutRoute], progress: ((Int, Int) -> Void)? = nil) async throws -> UIImage {
         guard let bounds = routes.combinedBoundingBox() else {
             throw ExportError.noRoutes
         }
@@ -30,7 +30,11 @@ final class RouteTileExporter {
         let minMaxTiles = tileBounds(for: bounds)
         let tiles = minMaxTiles.tiles
 
-        let tileImages = try await fetchTiles(tiles: tiles)
+        await MainActor.run {
+            progress?(0, tiles.count)
+        }
+
+        let tileImages = try await fetchTiles(tiles: tiles, progress: progress)
         return drawImage(with: tileImages,
                          tiles: tiles,
                          routes: routes,
@@ -38,7 +42,8 @@ final class RouteTileExporter {
                          minTileY: minMaxTiles.minY)
     }
 
-    private func fetchTiles(tiles: [TileCoordinate]) async throws -> [TileCoordinate: UIImage] {
+    private func fetchTiles(tiles: [TileCoordinate], progress: ((Int, Int) -> Void)?) async throws -> [TileCoordinate: UIImage] {
+        let total = tiles.count
         try await withThrowingTaskGroup(of: (TileCoordinate, UIImage).self) { group in
             for tile in tiles {
                 group.addTask { [zoomLevel, tileBaseURL] in
@@ -53,10 +58,16 @@ final class RouteTileExporter {
                     return (tile, image)
                 }
             }
-
             var images: [TileCoordinate: UIImage] = [:]
+            var downloaded = 0
             for try await (tile, image) in group {
                 images[tile] = image
+                downloaded += 1
+                if let progress {
+                    await MainActor.run {
+                        progress(downloaded, total)
+                    }
+                }
             }
             return images
         }
@@ -95,7 +106,7 @@ final class RouteTileExporter {
             for route in routes {
                 guard route.coordinates.count > 1 else { continue }
                 let path = UIBezierPath()
-                path.lineWidth = 4
+                path.lineWidth = 2
                 path.lineJoinStyle = .round
                 path.lineCapStyle = .round
 

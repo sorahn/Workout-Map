@@ -17,8 +17,9 @@ struct ContentView: View {
     @State private var selectedRoutes: [WorkoutRoute] = []
     @State private var isExporting = false
     @State private var exportImage: UIImage?
-    @State private var showShareSheet = false
+    @State private var showExportPreview = false
     @State private var exportErrorMessage: String?
+    @State private var exportProgress: ExportProgress?
     private let exporter = RouteTileExporter()
 
     init() {
@@ -32,31 +33,31 @@ struct ContentView: View {
         _mapViewStore = StateObject(wrappedValue: MapViewStore(workoutStore: store))
     }
 
-var body: some View {
-    ZStack(alignment: .center) {
-        mapLayer
-        stateOverlay
-    }
-    .sheet(isPresented: $showShareSheet) {
-        if let exportImage {
-            ShareSheet(items: [exportImage])
+    var body: some View {
+        ZStack(alignment: .center) {
+            mapLayer
+            stateOverlay
+        }
+        .sheet(isPresented: $showExportPreview) {
+            if let exportImage {
+                ExportPreviewSheet(image: exportImage)
+            }
+        }
+        .alert("Export Failed", isPresented: Binding(get: { exportErrorMessage != nil }, set: { newValue in
+            if !newValue {
+                exportErrorMessage = nil
+            }
+        })) {
+            Button("OK", role: .cancel) {
+                exportErrorMessage = nil
+            }
+        } message: {
+            Text(exportErrorMessage ?? "")
+        }
+        .task {
+            await workoutStore.refreshWorkoutsIfNeeded()
         }
     }
-    .alert("Export Failed", isPresented: Binding(get: { exportErrorMessage != nil }, set: { newValue in
-        if !newValue {
-            exportErrorMessage = nil
-        }
-    })) {
-        Button("OK", role: .cancel) {
-            exportErrorMessage = nil
-        }
-    } message: {
-        Text(exportErrorMessage ?? "")
-    }
-    .task {
-        await workoutStore.refreshWorkoutsIfNeeded()
-    }
-}
 
     private var mapLayer: some View {
         Map(position: $mapViewStore.cameraPosition, interactionModes: .all) {
@@ -75,6 +76,14 @@ var body: some View {
                 LoadingStatusBar(progress: progress)
                     .padding(.horizontal)
                     .padding(.top)
+            }
+        }
+        .overlay(alignment: .top) {
+            if let exportProgress {
+                ExportStatusBanner(progress: exportProgress)
+                    .padding(.top, 20)
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .overlay(alignment: .bottomLeading) {
@@ -191,17 +200,32 @@ extension ContentView {
     private func exportSelection() {
         guard !selectedRoutes.isEmpty else { return }
         isExporting = true
+        withAnimation {
+            exportProgress = ExportProgress(downloaded: 0, total: 0)
+        }
         Task {
             do {
-                let image = try await exporter.render(routes: selectedRoutes)
+                let image = try await exporter.render(routes: selectedRoutes) { downloaded, total in
+                    await MainActor.run {
+                        withAnimation(.spring()) {
+                            exportProgress = ExportProgress(downloaded: downloaded, total: total)
+                        }
+                    }
+                }
                 await MainActor.run {
                     self.exportImage = image
                     self.isExporting = false
-                    self.showShareSheet = true
+                    withAnimation(.spring()) {
+                        self.exportProgress = nil
+                    }
+                    self.showExportPreview = true
                 }
             } catch {
                 await MainActor.run {
                     self.isExporting = false
+                    withAnimation(.spring()) {
+                        self.exportProgress = nil
+                    }
                     self.exportErrorMessage = error.localizedDescription
                 }
             }
@@ -281,6 +305,53 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+struct ExportProgress: Equatable {
+    let downloaded: Int
+    let total: Int
+}
+
+struct ExportStatusBanner: View {
+    let progress: ExportProgress
+
+    var body: some View {
+        Label("Downloading tiles \(progress.downloaded)/\(max(progress.total, 1))",
+              systemImage: "arrow.down.circle")
+            .font(.subheadline.weight(.semibold))
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .background(.regularMaterial, in: Capsule())
+    }
+}
+
+struct ExportPreviewSheet: View {
+    let image: UIImage
+    @Environment(\.dismiss) private var dismiss
+    @State private var showShareSheet = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding()
+            }
+            .navigationTitle("Export Preview")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Share") { showShareSheet = true }
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(items: [image])
+            }
+        }
+    }
 }
 
 #Preview {

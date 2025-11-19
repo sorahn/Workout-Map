@@ -235,10 +235,10 @@ extension WorkoutRoute {
         var maxLon = first.longitude
 
         for coord in coordinates {
-            minLat = min(minLat, coord.latitude)
-            maxLat = max(maxLat, coord.latitude)
-            minLon = min(minLon, coord.longitude)
-            maxLon = max(maxLon, coord.longitude)
+            minLat = Swift.min(minLat, coord.latitude)
+            maxLat = Swift.max(maxLat, coord.latitude)
+            minLon = Swift.min(minLon, coord.longitude)
+            maxLon = Swift.max(maxLon, coord.longitude)
         }
 
         let regionMinLat = region.center.latitude - region.span.latitudeDelta / 2
@@ -261,10 +261,10 @@ extension WorkoutRoute {
         var maxLongitude = first.longitude
 
         for coordinate in coordinates {
-            minLatitude = min(minLatitude, coordinate.latitude)
-            maxLatitude = max(maxLatitude, coordinate.latitude)
-            minLongitude = min(minLongitude, coordinate.longitude)
-            maxLongitude = max(maxLongitude, coordinate.longitude)
+            minLatitude = Swift.min(minLatitude, coordinate.latitude)
+            maxLatitude = Swift.max(maxLatitude, coordinate.latitude)
+            minLongitude = Swift.min(minLongitude, coordinate.longitude)
+            maxLongitude = Swift.max(maxLongitude, coordinate.longitude)
         }
 
         return RouteBoundingBox(minLatitude: minLatitude,
