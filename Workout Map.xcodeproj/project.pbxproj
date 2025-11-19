@@ -258,6 +258,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Workout Map";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Workout Map reads your workout routes from Health to display them on the map.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Workout Map needs your location to show where you are relative to your workouts.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -293,6 +294,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Workout Map";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Workout Map reads your workout routes from Health to display them on the map.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Workout Map needs your location to show where you are relative to your workouts.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
