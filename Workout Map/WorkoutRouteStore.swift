@@ -59,7 +59,6 @@ final class WorkoutRouteStore: ObservableObject {
         .sunrise, .peach, .seafoam, .lavender, .sky, .mint, .butter, .rose
     ]
     private var knownWorkoutIDs: Set<UUID> = []
-    private var latestSyncedStartDate: Date?
     private var hasAttemptedInitialLoad = false
     private var hasRequestedHealthAccess = false
     private static let clearCacheDefaultsKey = "clear_cache_on_launch"
@@ -74,7 +73,6 @@ final class WorkoutRouteStore: ObservableObject {
 
         let cachedRoutes = persistence.loadRoutes()
         self.knownWorkoutIDs = Set(cachedRoutes.compactMap(\.workoutIdentifier))
-        self.latestSyncedStartDate = cachedRoutes.map(\.startDate).max()
         if !cachedRoutes.isEmpty {
             self.routes = cachedRoutes
             self.state = .loaded
@@ -114,7 +112,7 @@ final class WorkoutRouteStore: ObservableObject {
         loadingProgress = nil
 
         do {
-            let workouts = try await fetchWorkouts(startingFrom: latestSyncedStartDate)
+            let workouts = try await fetchWorkouts()
 
             guard !workouts.isEmpty else {
                 loadingProgress = nil
@@ -144,7 +142,6 @@ final class WorkoutRouteStore: ObservableObject {
                     newRoutes.append(route)
                     persistence.upsert(route)
                     knownWorkoutIDs.insert(workout.uuid)
-                    latestSyncedStartDate = max(latestSyncedStartDate ?? workout.startDate, workout.startDate)
                     self.routes = newRoutes + existingRoutes
                 }
             }
@@ -173,24 +170,17 @@ final class WorkoutRouteStore: ObservableObject {
             guard let self else { return }
             self.routes = []
             self.knownWorkoutIDs.removeAll()
-            self.latestSyncedStartDate = nil
             self.state = .empty
         }
     }
 
-    private func fetchWorkouts(startingFrom date: Date?) async throws -> [HKWorkout] {
+    private func fetchWorkouts() async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            let predicate: NSPredicate?
-            if let date {
-                predicate = HKQuery.predicateForSamples(withStart: date, end: nil, options: .strictStartDate)
-            } else {
-                predicate = nil
-            }
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
-                predicate: predicate,
+                predicate: nil,
                 limit: maxWorkoutsToFetch,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, error in
